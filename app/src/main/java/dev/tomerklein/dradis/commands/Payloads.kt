@@ -39,6 +39,15 @@ data class PhotoCommand(
     val camera: String = "rear",
 )
 
+/** Inbound `notify` payload — pushes a notification to the device's shade. */
+@Serializable
+data class NotifyCommand(
+    val title: String = "DRADIS",
+    val text: String = "",
+    /** Optional stable id so a later notify with the same id replaces it. */
+    val id: Int? = null,
+)
+
 /** Outbound `photo` envelope (base64 JPEG). */
 @Serializable
 data class PhotoPayload(

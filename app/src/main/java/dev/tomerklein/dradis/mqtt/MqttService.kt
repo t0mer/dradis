@@ -21,6 +21,7 @@ import dev.tomerklein.dradis.commands.CommandRouter
 import dev.tomerklein.dradis.commands.CommandSink
 import dev.tomerklein.dradis.commands.GetStatusHandler
 import dev.tomerklein.dradis.commands.LocationHandler
+import dev.tomerklein.dradis.commands.NotifyHandler
 import dev.tomerklein.dradis.commands.PhotoHandler
 import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SmsHandler
@@ -94,6 +95,7 @@ class MqttService : LifecycleService(), CommandSink {
                 LocationHandler(),
                 PingHandler(),
                 PhotoHandler(),
+                NotifyHandler(),
                 GetStatusHandler(onReport = { batteryReporter.publishNow() }),
             ),
         )

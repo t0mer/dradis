@@ -49,6 +49,7 @@ A live mirror of inbound/outbound MQTT activity, independent of logcat.
 | Find my phone | Loud alarm that bypasses silent / Do-Not-Disturb. |
 | Charging + battery | Charge type (AC/USB/Wireless/None), charging flag, battery %. |
 | Take photo | Front or rear still, resized/compressed, published as base64 JPEG. |
+| Push notification | Show a notification on the device's shade from a remote message. |
 | Telemetry | `device_info` blob in the legacy shape; on connect, on change, and on demand. |
 
 ## Tech stack
@@ -73,6 +74,7 @@ Base segment is the configurable device name (default prefix `zanzito`). QoS 1;
 | Get location now | `zanzito/<device>/getlocation` | empty / `{}` |
 | Find phone | `zanzito/<device>/ping` | optional `{"seconds":30}` (`0` stops) |
 | Take photo | `zanzito/<device>/takephoto` | `{"camera":"front"｜"rear"}` |
+| Push notification | `zanzito/<device>/notify` | `{"title":"…","text":"…","id"?:N}` (or raw text) |
 | Force telemetry | `zanzito/<device>/getstatus` | empty |
 
 ### Outbound (published)
