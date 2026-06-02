@@ -51,16 +51,22 @@ class BatteryReporter(
     }
 
     /** Fire a telemetry report (used on connect, on `getstatus`, and on
-     *  charging change). Fetches SSID + location, then publishes. */
+     *  charging change). Fetches SSID + a fresh location, then publishes. */
     fun report() {
-        scope.launch { buildAndPublish() }
+        scope.launch { publishReport(prefetchedLocation = null, usePrefetched = false) }
     }
 
-    private suspend fun buildAndPublish() {
-        val location = if (sink.settings.locationEnabled) {
-            runCatching { LocationPublisher.currentPayload(sink) }.getOrNull()
-        } else {
-            null
+    /**
+     * Publish a telemetry report. When [usePrefetched] is true, [prefetchedLocation]
+     * is used as-is (so the periodic reporter can fetch one fix for both the
+     * telemetry and the location topic); otherwise a fresh fix is fetched here.
+     */
+    suspend fun publishReport(prefetchedLocation: LocationPayload?, usePrefetched: Boolean) {
+        val location = when {
+            usePrefetched -> prefetchedLocation
+            sink.settings.locationEnabled ->
+                runCatching { LocationPublisher.currentPayload(sink) }.getOrNull()
+            else -> null
         }
         val info = build(readBatteryIntent(), sink.currentSsid, location)
         sink.publish(sink.topics.deviceInfo, json.encodeToString(info))

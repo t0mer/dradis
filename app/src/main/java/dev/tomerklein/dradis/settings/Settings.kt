@@ -26,8 +26,9 @@ data class DradisSettings(
     val wanBroker: BrokerConfig = BrokerConfig(port = 8883, tls = true),
     val homeSsids: List<String> = emptyList(),
 
-    val locationPublishEnabled: Boolean = false,
-    val locationIntervalSeconds: Int = 300,
+    // Periodic publishing of both telemetry and location at the update interval.
+    val periodicUpdatesEnabled: Boolean = false,
+    val updateIntervalSeconds: Int = 300,
 
     // Per-feature toggles.
     val smsEnabled: Boolean = true,

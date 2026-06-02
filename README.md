@@ -28,8 +28,8 @@ every permission DRADIS needs.
 ![Status](assets/screenshots/status.png)
 
 ### Settings
-Device name, topic prefix, home SSIDs, both brokers (host/port/auth/TLS), location
-interval, per-feature toggles and behaviour. Credentials are masked.
+Device name, topic prefix, home SSIDs, both brokers (host/port/auth/TLS), the
+update interval, per-feature toggles and behaviour. Credentials are masked.
 
 ![Settings](assets/screenshots/settings.png)
 
@@ -46,12 +46,12 @@ A live mirror of inbound/outbound MQTT activity, independent of logcat.
 |---|---|
 | Dual MQTT brokers | LAN broker on a home SSID, WAN broker otherwise; auto-reconnect on network change. |
 | Send SMS | JSON `{phone,text}` or the legacy Zanzito topic-path form. |
-| Location | On-demand fix + optional periodic publishing at a configurable interval. |
+| Location | On-demand fix, plus periodic publishing on the update interval. |
 | Find my phone | Loud alarm that bypasses silent / Do-Not-Disturb. |
 | Charging + battery | Charge type (AC/USB/Wireless/None), charging flag, battery %. |
 | Take photo | Front or rear still, resized/compressed, published as base64 JPEG. |
 | Push notification | Show a notification on the device's shade from a remote message. |
-| Telemetry | `device_info` blob in the legacy shape; on connect, on change, and on demand. |
+| Telemetry | `device_info` (battery, charging, SSID, location); on connect, on change, on demand, and on the update interval. |
 
 ## Tech stack
 

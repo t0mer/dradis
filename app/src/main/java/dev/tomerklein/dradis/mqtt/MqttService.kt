@@ -28,7 +28,7 @@ import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.BatteryReporter
-import dev.tomerklein.dradis.telemetry.LocationReporter
+import dev.tomerklein.dradis.telemetry.PeriodicReporter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,7 +57,7 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var router: CommandRouter
     private lateinit var batteryReporter: BatteryReporter
-    private lateinit var locationReporter: LocationReporter
+    private lateinit var periodicReporter: PeriodicReporter
     private var reselectJob: Job? = null
 
     // --- CommandSink ---------------------------------------------------------
@@ -88,7 +88,7 @@ class MqttService : LifecycleService(), CommandSink {
 
         batteryReporter = BatteryReporter(this, lifecycleScope)
         batteryReporter.start()
-        locationReporter = LocationReporter(this, lifecycleScope)
+        periodicReporter = PeriodicReporter(this, lifecycleScope, batteryReporter)
 
         router = CommandRouter(
             sink = this,
@@ -109,7 +109,7 @@ class MqttService : LifecycleService(), CommandSink {
             settingsRepo.settings.collect { s ->
                 current = s
                 currentTopics = Topics(s.topicPrefix, s.deviceName)
-                locationReporter.restart()
+                periodicReporter.restart()
                 scheduleReselect(debounceMs = 0)
             }
         }
@@ -123,7 +123,7 @@ class MqttService : LifecycleService(), CommandSink {
     override fun onDestroy() {
         reselectJob?.cancel()
         networkMonitor.stop()
-        locationReporter.stop()
+        periodicReporter.stop()
         batteryReporter.stop()
         client?.disconnect()
         client = null

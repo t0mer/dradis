@@ -57,8 +57,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var wanPass by rememberSaveable(saved.wanBroker.password) { mutableStateOf(saved.wanBroker.password) }
     var wanTls by rememberSaveable(saved.wanBroker.tls) { mutableStateOf(saved.wanBroker.tls) }
 
-    var locEnabled by rememberSaveable(saved.locationPublishEnabled) { mutableStateOf(saved.locationPublishEnabled) }
-    var locInterval by rememberSaveable(saved.locationIntervalSeconds) { mutableStateOf(saved.locationIntervalSeconds.toString()) }
+    var periodicEnabled by rememberSaveable(saved.periodicUpdatesEnabled) { mutableStateOf(saved.periodicUpdatesEnabled) }
+    var updateInterval by rememberSaveable(saved.updateIntervalSeconds) { mutableStateOf(saved.updateIntervalSeconds.toString()) }
 
     var smsEnabled by rememberSaveable(saved.smsEnabled) { mutableStateOf(saved.smsEnabled) }
     var locationEnabled by rememberSaveable(saved.locationEnabled) { mutableStateOf(saved.locationEnabled) }
@@ -99,9 +99,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             ToggleRow("Use TLS", wanTls) { wanTls = it }
         }
 
-        SettingsCard("Location publishing") {
-            ToggleRow("Publish periodically", locEnabled) { locEnabled = it }
-            Field("Interval (seconds)", locInterval, KeyboardType.Number) { locInterval = it }
+        SettingsCard("Periodic updates") {
+            ToggleRow("Publish periodically (telemetry + location)", periodicEnabled) { periodicEnabled = it }
+            Field("Update interval (seconds)", updateInterval, KeyboardType.Number) { updateInterval = it }
         }
 
         SettingsCard("Features") {
@@ -138,8 +138,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         tls = wanTls,
                     ),
                     homeSsids = homeSsids.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                    locationPublishEnabled = locEnabled,
-                    locationIntervalSeconds = locInterval.toIntOrNull()?.coerceAtLeast(15) ?: 300,
+                    periodicUpdatesEnabled = periodicEnabled,
+                    updateIntervalSeconds = updateInterval.toIntOrNull()?.coerceAtLeast(15) ?: 300,
                     smsEnabled = smsEnabled,
                     locationEnabled = locationEnabled,
                     pingEnabled = pingEnabled,
