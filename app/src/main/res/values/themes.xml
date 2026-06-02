@@ -1,0 +1,4 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Compose drives the real styling; this is the launch/base theme. -->
+    <style name="Theme.DRADIS" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

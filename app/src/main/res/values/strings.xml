@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">DRADIS</string>
+    <string name="fgs_channel_name">DRADIS connection</string>
+    <string name="fgs_notification_title">DRADIS</string>
+</resources>
