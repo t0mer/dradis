@@ -51,6 +51,7 @@ A live mirror of inbound/outbound MQTT activity, independent of logcat.
 | Charging + battery | Charge type (AC/USB/Wireless/None), charging flag, battery %. |
 | Take photo | Front or rear still, resized/compressed, published as base64 JPEG. |
 | Push notification | Show a notification on the device's shade from a remote message. |
+| Sensors | Publish step counter, step detector and significant-motion data. |
 | Telemetry | Battery, Wi-Fi and device info on separate topics; on connect, on change, on demand, and on the update interval. |
 
 ## Tech stack
@@ -87,6 +88,7 @@ Base segment is the configurable device name (default prefix `dradis`). QoS 1;
 | Device info | `dradis/<device>/device_info` | `{"time","device_info","screen_locked"}` | no |
 | Battery | `dradis/<device>/battery` | `{"battery_level","charging","charge_type"}` | no |
 | Wi-Fi | `dradis/<device>/wifi` | `{"connected","ssid"}` | no |
+| Sensors | `dradis/<device>/sensors` | `{"step_counter","steps_detected","motion_detected","time"}` | no |
 | Location | `dradis/<device>/location` | `{"lat","lon","accuracy","time"}` | no |
 | Photo | `dradis/<device>/photo` | `{"camera","time","jpeg_b64"}` | no |
 | SMS result | `dradis/<device>/sendsms/result` | `{"phone","ok","error?"}` | no |
@@ -136,7 +138,7 @@ keyPassword=...
 
 On first run, open **Status → Permissions** and grant:
 
-- **Runtime:** SMS, Location (fine/coarse), Camera, Notifications.
+- **Runtime:** SMS, Location (fine/coarse), Camera, Notifications, Physical activity (for step sensors).
 - **Background location** — granted separately; choose **"Allow all the time"**.
 - **Do-Not-Disturb access** — required for find-my-phone to ring through DND.
 - **Ignore battery optimisation** — or the OS may kill the connection.

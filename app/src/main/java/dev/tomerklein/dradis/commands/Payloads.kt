@@ -73,6 +73,18 @@ data class WifiInfo(
     val ssid: String? = null,
 )
 
+/** Outbound `sensors` — step + motion sensor data. */
+@Serializable
+data class SensorsInfo(
+    /** Cumulative steps since boot (TYPE_STEP_COUNTER), or null if unavailable. */
+    @SerialName("step_counter") val stepCounter: Long? = null,
+    /** Steps detected since the service started (TYPE_STEP_DETECTOR). */
+    @SerialName("steps_detected") val stepsDetected: Long = 0,
+    /** True if significant motion occurred since the last report. */
+    @SerialName("motion_detected") val motionDetected: Boolean = false,
+    val time: Long,
+)
+
 /** Outbound `device_info` — static device descriptor + screen-lock state. */
 @Serializable
 data class DeviceInfo(

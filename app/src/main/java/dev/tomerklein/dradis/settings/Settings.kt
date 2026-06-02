@@ -37,6 +37,7 @@ data class DradisSettings(
     val cameraEnabled: Boolean = true,
     val telemetryEnabled: Boolean = true,
     val notifyEnabled: Boolean = true,
+    val sensorsEnabled: Boolean = true,
 
     val autostartOnBoot: Boolean = true,
     val reconnectOnNetworkChange: Boolean = true,

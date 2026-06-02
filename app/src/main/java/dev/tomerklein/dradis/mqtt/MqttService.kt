@@ -28,6 +28,7 @@ import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
+import dev.tomerklein.dradis.telemetry.SensorReporter
 import dev.tomerklein.dradis.telemetry.TelemetryReporter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -57,6 +58,7 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var router: CommandRouter
     private lateinit var telemetryReporter: TelemetryReporter
+    private lateinit var sensorReporter: SensorReporter
     private lateinit var periodicReporter: PeriodicReporter
     private var reselectJob: Job? = null
 
@@ -90,7 +92,9 @@ class MqttService : LifecycleService(), CommandSink {
 
         telemetryReporter = TelemetryReporter(this)
         telemetryReporter.start()
-        periodicReporter = PeriodicReporter(this, lifecycleScope, telemetryReporter)
+        sensorReporter = SensorReporter(this)
+        sensorReporter.start()
+        periodicReporter = PeriodicReporter(this, lifecycleScope, telemetryReporter, sensorReporter)
 
         router = CommandRouter(
             sink = this,
@@ -100,7 +104,10 @@ class MqttService : LifecycleService(), CommandSink {
                 PingHandler(),
                 PhotoHandler(),
                 NotifyHandler(),
-                GetStatusHandler(onReport = { telemetryReporter.publishAll() }),
+                GetStatusHandler(onReport = {
+                    telemetryReporter.publishAll()
+                    if (current.sensorsEnabled) sensorReporter.publish()
+                }),
             ),
         )
 
@@ -127,6 +134,7 @@ class MqttService : LifecycleService(), CommandSink {
         networkMonitor.stop()
         periodicReporter.stop()
         telemetryReporter.stop()
+        sensorReporter.stop()
         client?.disconnect()
         client = null
         ServiceLocator.updateConnection(ConnectionStatus())
@@ -197,6 +205,7 @@ class MqttService : LifecycleService(), CommandSink {
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
         if (current.telemetryEnabled) telemetryReporter.publishAll()
+        if (current.sensorsEnabled) sensorReporter.publish()
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }
