@@ -27,8 +27,8 @@ import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.DradisSettings
-import dev.tomerklein.dradis.telemetry.BatteryReporter
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
+import dev.tomerklein.dradis.telemetry.TelemetryReporter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -56,7 +56,7 @@ class MqttService : LifecycleService(), CommandSink {
     private var selection: BrokerSelector.Selection? = null
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var router: CommandRouter
-    private lateinit var batteryReporter: BatteryReporter
+    private lateinit var telemetryReporter: TelemetryReporter
     private lateinit var periodicReporter: PeriodicReporter
     private var reselectJob: Job? = null
 
@@ -66,6 +66,8 @@ class MqttService : LifecycleService(), CommandSink {
     override val settings: DradisSettings get() = current
     override val currentSsid: String?
         get() = if (::networkMonitor.isInitialized) networkMonitor.currentSsid() else null
+    override val onWifi: Boolean
+        get() = ::networkMonitor.isInitialized && networkMonitor.isWifi()
 
     override fun publish(topic: String, payload: String, retain: Boolean) {
         client?.publish(topic, payload, retain)
@@ -86,9 +88,9 @@ class MqttService : LifecycleService(), CommandSink {
         super.onCreate()
         startInForeground("Starting…")
 
-        batteryReporter = BatteryReporter(this, lifecycleScope)
-        batteryReporter.start()
-        periodicReporter = PeriodicReporter(this, lifecycleScope, batteryReporter)
+        telemetryReporter = TelemetryReporter(this)
+        telemetryReporter.start()
+        periodicReporter = PeriodicReporter(this, lifecycleScope, telemetryReporter)
 
         router = CommandRouter(
             sink = this,
@@ -98,7 +100,7 @@ class MqttService : LifecycleService(), CommandSink {
                 PingHandler(),
                 PhotoHandler(),
                 NotifyHandler(),
-                GetStatusHandler(onReport = { batteryReporter.report() }),
+                GetStatusHandler(onReport = { telemetryReporter.publishAll() }),
             ),
         )
 
@@ -124,7 +126,7 @@ class MqttService : LifecycleService(), CommandSink {
         reselectJob?.cancel()
         networkMonitor.stop()
         periodicReporter.stop()
-        batteryReporter.stop()
+        telemetryReporter.stop()
         client?.disconnect()
         client = null
         ServiceLocator.updateConnection(ConnectionStatus())
@@ -194,7 +196,7 @@ class MqttService : LifecycleService(), CommandSink {
         c.subscribe(t.inboundTopics())
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
-        if (current.telemetryEnabled) batteryReporter.report()
+        if (current.telemetryEnabled) telemetryReporter.publishAll()
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }

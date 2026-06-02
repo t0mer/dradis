@@ -17,6 +17,9 @@ interface CommandSink {
     /** Current Wi-Fi SSID, or null when not on Wi-Fi / unreadable. */
     val currentSsid: String?
 
+    /** True when the active network is Wi-Fi. */
+    val onWifi: Boolean
+
     fun publish(topic: String, payload: String, retain: Boolean = false)
     fun publish(topic: String, payload: ByteArray, retain: Boolean = false)
     fun logInfo(message: String)

@@ -28,27 +28,35 @@ class NetworkMonitor(
     @Volatile
     private var ssid: String? = null
 
+    @Volatile
+    private var onWifi: Boolean = false
+
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             refresh()
         }
 
         override fun onLost(network: Network) {
-            ssid = null
+            update(null)
             onChange()
         }
 
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-            ssid = extractSsid(caps)
+            update(caps)
             onChange()
         }
     }
 
     private fun refresh() {
         val active = cm.activeNetwork
-        val caps = active?.let { cm.getNetworkCapabilities(it) }
-        ssid = caps?.let { extractSsid(it) }
+        update(active?.let { cm.getNetworkCapabilities(it) })
         onChange()
+    }
+
+    private fun update(caps: NetworkCapabilities?) {
+        val isWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        onWifi = isWifi
+        ssid = if (isWifi) extractSsid(caps!!) else null
     }
 
     fun start() {
@@ -66,6 +74,9 @@ class NetworkMonitor(
 
     /** Current SSID, or null if not on Wi-Fi / unreadable (→ WAN). */
     fun currentSsid(): String? = ssid
+
+    /** True when the active network is Wi-Fi (independent of SSID readability). */
+    fun isWifi(): Boolean = onWifi
 
     private fun extractSsid(caps: NetworkCapabilities): String? {
         if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null

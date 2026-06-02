@@ -56,21 +56,28 @@ data class PhotoPayload(
     @SerialName("jpeg_b64") val jpegB64: String,
 )
 
-/**
- * Outbound `device_info` — field names reproduce the legacy Zanzito shape so
- * existing dashboards keep working (CLAUDE.md §6.3).
- */
+/** Outbound `battery` — charge level and charging info. */
+@Serializable
+data class BatteryInfo(
+    @SerialName("battery_level") val level: Int,
+    val charging: Boolean,
+    /** "AC" | "USB" | "Wireless" | "None". */
+    @SerialName("charge_type") val chargeType: String,
+)
+
+/** Outbound `wifi` — Wi-Fi connection state and SSID. */
+@Serializable
+data class WifiInfo(
+    val connected: Boolean,
+    /** SSID name, or null when not connected / unreadable. */
+    val ssid: String? = null,
+)
+
+/** Outbound `device_info` — static device descriptor + screen-lock state. */
 @Serializable
 data class DeviceInfo(
     val time: Long,
     @SerialName("device_info") val deviceInfo: String,
-    @SerialName("charge_type") val chargeType: String,
-    @SerialName("battery_charging") val batteryCharging: Boolean,
-    @SerialName("battery_level") val batteryLevel: Int,
     @SerialName("current_foreground_app") val currentForegroundApp: String,
     @SerialName("screen_locked") val screenLocked: Boolean,
-    /** Connected Wi-Fi SSID, or null when not on Wi-Fi (or unreadable). */
-    @SerialName("wifi_ssid") val wifiSsid: String? = null,
-    /** Latest location fix, or null when unavailable/disabled. */
-    val location: LocationPayload? = null,
 )

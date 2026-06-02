@@ -37,6 +37,8 @@ class Topics(private val prefix: String, private val device: String) {
     val status: String get() = "$base/status"
     val version: String get() = "$base/version"
     val deviceInfo: String get() = "$base/device_info"
+    val battery: String get() = "$base/battery"
+    val wifi: String get() = "$base/wifi"
     val location: String get() = "$base/location"
     val photo: String get() = "$base/photo"
     val smsResult: String get() = "$base/sendsms/result"

@@ -46,11 +46,6 @@ object LocationPublisher {
         )
     }
 
-    /** Publish an already-fetched payload to the `location` topic. */
-    fun publishPayload(sink: CommandSink, payload: LocationPayload) {
-        sink.publish(sink.topics.location, json.encodeToString(payload))
-    }
-
     suspend fun publishCurrent(sink: CommandSink): Boolean {
         if (!hasPermission(sink.appContext)) {
             sink.logInfo("Location requested but permission not granted")

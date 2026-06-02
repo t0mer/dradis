@@ -9,15 +9,14 @@ import kotlinx.coroutines.launch
 
 /**
  * Publishes periodic updates at the user-configured update interval
- * (CLAUDE.md §9.3). Each tick publishes both the location fix and the
- * telemetry blob, honouring the per-feature toggles. The location fix is
- * fetched once per tick and reused for both. [restart] is called whenever
- * settings change so interval/toggle edits apply immediately.
+ * (CLAUDE.md §9.3). Each tick publishes location (its own topic) and telemetry
+ * (battery, wifi, device_info), honouring the per-feature toggles. [restart] is
+ * called whenever settings change so interval/toggle edits apply immediately.
  */
 class PeriodicReporter(
     private val sink: CommandSink,
     private val scope: CoroutineScope,
-    private val batteryReporter: BatteryReporter,
+    private val telemetryReporter: TelemetryReporter,
 ) {
     private var job: Job? = null
 
@@ -30,17 +29,8 @@ class PeriodicReporter(
             while (isActive) {
                 val cur = sink.settings
                 if (cur.periodicUpdatesEnabled) {
-                    val location = if (cur.locationEnabled) {
-                        runCatching { LocationPublisher.currentPayload(sink) }.getOrNull()
-                    } else {
-                        null
-                    }
-                    if (cur.locationEnabled && location != null) {
-                        LocationPublisher.publishPayload(sink, location)
-                    }
-                    if (cur.telemetryEnabled) {
-                        batteryReporter.publishReport(location, usePrefetched = true)
-                    }
+                    if (cur.locationEnabled) LocationPublisher.publishCurrent(sink)
+                    if (cur.telemetryEnabled) telemetryReporter.publishAll()
                 }
                 val interval = cur.updateIntervalSeconds.coerceAtLeast(15)
                 delay(interval * 1000L)
