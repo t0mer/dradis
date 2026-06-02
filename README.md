@@ -84,7 +84,7 @@ Base segment is the configurable device name (default prefix `dradis`). QoS 1;
 |---|---|---|---|
 | Online status | `dradis/<device>/status` | `1` online / `0` LWT | yes |
 | App version | `dradis/<device>/version` | e.g. `1.0` | yes |
-| Device info | `dradis/<device>/device_info` | `{"time","device_info","current_foreground_app","screen_locked"}` | no |
+| Device info | `dradis/<device>/device_info` | `{"time","device_info","screen_locked"}` | no |
 | Battery | `dradis/<device>/battery` | `{"battery_level","charging","charge_type"}` | no |
 | Wi-Fi | `dradis/<device>/wifi` | `{"connected","ssid"}` | no |
 | Location | `dradis/<device>/location` | `{"lat","lon","accuracy","time"}` | no |

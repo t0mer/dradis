@@ -78,6 +78,5 @@ data class WifiInfo(
 data class DeviceInfo(
     val time: Long,
     @SerialName("device_info") val deviceInfo: String,
-    @SerialName("current_foreground_app") val currentForegroundApp: String,
     @SerialName("screen_locked") val screenLocked: Boolean,
 )

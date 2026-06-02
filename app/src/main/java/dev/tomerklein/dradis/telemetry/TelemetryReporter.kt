@@ -86,7 +86,6 @@ class TelemetryReporter(private val sink: CommandSink) {
     private fun buildDeviceInfo(): DeviceInfo = DeviceInfo(
         time = System.currentTimeMillis() / 1000,
         deviceInfo = "${Build.MANUFACTURER} ${Build.MODEL} (${Build.VERSION.RELEASE})",
-        currentForegroundApp = "DRADIS",
         screenLocked = isScreenLocked(),
     )
 
