@@ -9,16 +9,23 @@ import android.os.Build
 import android.os.PowerManager
 import dev.tomerklein.dradis.commands.CommandSink
 import dev.tomerklein.dradis.commands.DeviceInfo
+import dev.tomerklein.dradis.commands.LocationPayload
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
  * Builds and publishes the `device_info` telemetry blob (CLAUDE.md §6.3, §9.5):
- * battery level, charging state and charge type. Also republishes on every
- * charging-state change while registered.
+ * battery level, charging state and charge type, plus the connected Wi-Fi SSID
+ * and the latest location fix. Also republishes on every charging-state change.
+ *
+ * Reporting is asynchronous (it fetches a location fix), so it runs on [scope].
  */
-class BatteryReporter(private val sink: CommandSink) {
-
+class BatteryReporter(
+    private val sink: CommandSink,
+    private val scope: CoroutineScope,
+) {
     private val json = Json { encodeDefaults = true }
     private var receiver: BroadcastReceiver? = null
 
@@ -27,7 +34,7 @@ class BatteryReporter(private val sink: CommandSink) {
         if (receiver != null) return
         val r = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                if (sink.settings.telemetryEnabled) publish(intent)
+                if (sink.settings.telemetryEnabled) report()
             }
         }
         receiver = r
@@ -43,18 +50,30 @@ class BatteryReporter(private val sink: CommandSink) {
         receiver = null
     }
 
-    /** Publish a one-off report (used on connect and on `getstatus`). */
-    fun publishNow() = publish(readBatteryIntent())
+    /** Fire a telemetry report (used on connect, on `getstatus`, and on
+     *  charging change). Fetches SSID + location, then publishes. */
+    fun report() {
+        scope.launch { buildAndPublish() }
+    }
 
-    private fun publish(batteryIntent: Intent?) {
-        val info = build(batteryIntent)
+    private suspend fun buildAndPublish() {
+        val location = if (sink.settings.locationEnabled) {
+            runCatching { LocationPublisher.currentPayload(sink) }.getOrNull()
+        } else {
+            null
+        }
+        val info = build(readBatteryIntent(), sink.currentSsid, location)
         sink.publish(sink.topics.deviceInfo, json.encodeToString(info))
     }
 
     private fun readBatteryIntent(): Intent? =
         sink.appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
-    private fun build(batteryIntent: Intent?): DeviceInfo {
+    private fun build(
+        batteryIntent: Intent?,
+        ssid: String?,
+        location: LocationPayload?,
+    ): DeviceInfo {
         val context = sink.appContext
         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
@@ -80,6 +99,8 @@ class BatteryReporter(private val sink: CommandSink) {
             batteryLevel = level,
             currentForegroundApp = "DRADIS",
             screenLocked = isScreenLocked(),
+            wifiSsid = ssid,
+            location = location,
         )
     }
 

@@ -64,6 +64,8 @@ class MqttService : LifecycleService(), CommandSink {
     override val appContext: Context get() = applicationContext
     override val topics: Topics get() = currentTopics
     override val settings: DradisSettings get() = current
+    override val currentSsid: String?
+        get() = if (::networkMonitor.isInitialized) networkMonitor.currentSsid() else null
 
     override fun publish(topic: String, payload: String, retain: Boolean) {
         client?.publish(topic, payload, retain)
@@ -84,7 +86,7 @@ class MqttService : LifecycleService(), CommandSink {
         super.onCreate()
         startInForeground("Starting…")
 
-        batteryReporter = BatteryReporter(this)
+        batteryReporter = BatteryReporter(this, lifecycleScope)
         batteryReporter.start()
         locationReporter = LocationReporter(this, lifecycleScope)
 
@@ -96,7 +98,7 @@ class MqttService : LifecycleService(), CommandSink {
                 PingHandler(),
                 PhotoHandler(),
                 NotifyHandler(),
-                GetStatusHandler(onReport = { batteryReporter.publishNow() }),
+                GetStatusHandler(onReport = { batteryReporter.report() }),
             ),
         )
 
@@ -192,7 +194,7 @@ class MqttService : LifecycleService(), CommandSink {
         c.subscribe(t.inboundTopics())
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
-        if (current.telemetryEnabled) batteryReporter.publishNow()
+        if (current.telemetryEnabled) batteryReporter.report()
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }

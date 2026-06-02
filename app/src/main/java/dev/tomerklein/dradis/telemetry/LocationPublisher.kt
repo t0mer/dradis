@@ -32,22 +32,29 @@ object LocationPublisher {
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
 
-    suspend fun publishCurrent(sink: CommandSink): Boolean {
+    /** Fetch a fresh fix as a [LocationPayload] without publishing, or null if
+     *  permission is missing or no fix is available. Used by telemetry. */
+    suspend fun currentPayload(sink: CommandSink): LocationPayload? {
         val context = sink.appContext
-        if (!hasPermission(context)) {
-            sink.logInfo("Location requested but permission not granted")
-            return false
-        }
-        val location = currentLocation(context) ?: run {
-            sink.logInfo("Location unavailable")
-            return false
-        }
-        val payload = LocationPayload(
+        if (!hasPermission(context)) return null
+        val location = currentLocation(context) ?: return null
+        return LocationPayload(
             lat = location.latitude,
             lon = location.longitude,
             accuracy = location.accuracy,
             time = location.time / 1000, // epoch seconds, matching legacy
         )
+    }
+
+    suspend fun publishCurrent(sink: CommandSink): Boolean {
+        if (!hasPermission(sink.appContext)) {
+            sink.logInfo("Location requested but permission not granted")
+            return false
+        }
+        val payload = currentPayload(sink) ?: run {
+            sink.logInfo("Location unavailable")
+            return false
+        }
         sink.publish(sink.topics.location, json.encodeToString(payload))
         return true
     }

@@ -14,6 +14,9 @@ interface CommandSink {
     val topics: Topics
     val settings: DradisSettings
 
+    /** Current Wi-Fi SSID, or null when not on Wi-Fi / unreadable. */
+    val currentSsid: String?
+
     fun publish(topic: String, payload: String, retain: Boolean = false)
     fun publish(topic: String, payload: ByteArray, retain: Boolean = false)
     fun logInfo(message: String)

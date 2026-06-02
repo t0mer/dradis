@@ -69,4 +69,8 @@ data class DeviceInfo(
     @SerialName("battery_level") val batteryLevel: Int,
     @SerialName("current_foreground_app") val currentForegroundApp: String,
     @SerialName("screen_locked") val screenLocked: Boolean,
+    /** Connected Wi-Fi SSID, or null when not on Wi-Fi (or unreadable). */
+    @SerialName("wifi_ssid") val wifiSsid: String? = null,
+    /** Latest location fix, or null when unavailable/disabled. */
+    val location: LocationPayload? = null,
 )

@@ -95,8 +95,14 @@ Base segment is the configurable device name (default prefix `dradis`). QoS 1;
 ```json
 { "time": 1596708734, "device_info": "Xiaomi Mi A1 (9)",
   "charge_type": "None", "battery_charging": false, "battery_level": 76,
-  "current_foreground_app": "DRADIS", "screen_locked": true }
+  "current_foreground_app": "DRADIS", "screen_locked": true,
+  "wifi_ssid": "home-wifi",
+  "location": { "lat": 32.08, "lon": 34.78, "accuracy": 12.0, "time": 1596708730 } }
 ```
+
+`wifi_ssid` is null when not on Wi-Fi (or unreadable without location
+permission); `location` is null when unavailable or the location feature is
+disabled.
 
 ---
 
