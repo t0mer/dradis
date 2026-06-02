@@ -27,8 +27,8 @@ data class DradisSettings(
     val homeSsids: List<String> = emptyList(),
 
     // Periodic publishing of both telemetry and location at the update interval.
-    val periodicUpdatesEnabled: Boolean = false,
-    val updateIntervalSeconds: Int = 300,
+    val periodicUpdatesEnabled: Boolean = true,
+    val updateIntervalSeconds: Int = 90,
 
     // Per-feature toggles.
     val smsEnabled: Boolean = true,
