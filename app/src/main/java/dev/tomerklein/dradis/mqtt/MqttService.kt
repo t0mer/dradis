@@ -24,7 +24,9 @@ import dev.tomerklein.dradis.commands.LocationHandler
 import dev.tomerklein.dradis.commands.NotifyHandler
 import dev.tomerklein.dradis.commands.PhotoHandler
 import dev.tomerklein.dradis.commands.PingHandler
+import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
+import dev.tomerklein.dradis.commands.TtsSpeaker
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
@@ -60,6 +62,7 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var telemetryReporter: TelemetryReporter
     private lateinit var sensorReporter: SensorReporter
     private lateinit var periodicReporter: PeriodicReporter
+    private lateinit var ttsSpeaker: TtsSpeaker
     private var reselectJob: Job? = null
 
     // --- CommandSink ---------------------------------------------------------
@@ -94,6 +97,7 @@ class MqttService : LifecycleService(), CommandSink {
         telemetryReporter.start()
         sensorReporter = SensorReporter(this)
         sensorReporter.start()
+        ttsSpeaker = TtsSpeaker(this)
         periodicReporter = PeriodicReporter(this, lifecycleScope, telemetryReporter, sensorReporter)
 
         router = CommandRouter(
@@ -104,6 +108,7 @@ class MqttService : LifecycleService(), CommandSink {
                 PingHandler(),
                 PhotoHandler(),
                 NotifyHandler(),
+                SayHandler(ttsSpeaker),
                 GetStatusHandler(onReport = {
                     telemetryReporter.publishAll()
                     if (current.sensorsEnabled) sensorReporter.publish()
@@ -135,6 +140,7 @@ class MqttService : LifecycleService(), CommandSink {
         periodicReporter.stop()
         telemetryReporter.stop()
         sensorReporter.stop()
+        ttsSpeaker.shutdown()
         client?.disconnect()
         client = null
         ServiceLocator.updateConnection(ConnectionStatus())

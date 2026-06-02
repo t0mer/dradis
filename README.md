@@ -52,6 +52,7 @@ A live mirror of inbound/outbound MQTT activity, independent of logcat.
 | Take photo | Front or rear still, resized/compressed, published as base64 JPEG. |
 | Push notification | Show a notification on the device's shade from a remote message. |
 | Sensors | Publish step counter, step detector and significant-motion data. |
+| Text-to-speech | Speak a remote message aloud on the device. |
 | Telemetry | Battery, Wi-Fi and device info on separate topics; on connect, on change, on demand, and on the update interval. |
 
 ## Tech stack
@@ -77,6 +78,7 @@ Base segment is the configurable device name (default prefix `dradis`). QoS 1;
 | Find phone | `dradis/<device>/ping` | optional `{"seconds":30}` (`0` stops) |
 | Take photo | `dradis/<device>/takephoto` | `{"camera":"front"｜"rear"}` |
 | Push notification | `dradis/<device>/notify` | `{"title":"…","text":"…","id"?:N}` (or raw text) |
+| Text-to-speech | `dradis/<device>/say` | `{"text":"…"}` (or raw text) |
 | Force telemetry | `dradis/<device>/getstatus` | empty |
 
 ### Outbound (published)

@@ -20,6 +20,7 @@ class Topics(private val prefix: String, private val device: String) {
     val takePhoto: String get() = "$base/takephoto"
     val getStatus: String get() = "$base/getstatus"
     val notify: String get() = "$base/notify"
+    val say: String get() = "$base/say"
 
     /** All inbound command topics, for explicit subscription (preferred over wildcard). */
     fun inboundTopics(): List<String> = listOf(
@@ -31,6 +32,7 @@ class Topics(private val prefix: String, private val device: String) {
         takePhoto,
         getStatus,
         notify,
+        say,
     )
 
     // --- Outbound (app publishes) -------------------------------------------

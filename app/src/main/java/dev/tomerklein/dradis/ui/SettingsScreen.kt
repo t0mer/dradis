@@ -67,6 +67,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var telemetryEnabled by rememberSaveable(saved.telemetryEnabled) { mutableStateOf(saved.telemetryEnabled) }
     var notifyEnabled by rememberSaveable(saved.notifyEnabled) { mutableStateOf(saved.notifyEnabled) }
     var sensorsEnabled by rememberSaveable(saved.sensorsEnabled) { mutableStateOf(saved.sensorsEnabled) }
+    var ttsEnabled by rememberSaveable(saved.ttsEnabled) { mutableStateOf(saved.ttsEnabled) }
 
     var autostart by rememberSaveable(saved.autostartOnBoot) { mutableStateOf(saved.autostartOnBoot) }
     var reconnect by rememberSaveable(saved.reconnectOnNetworkChange) { mutableStateOf(saved.reconnectOnNetworkChange) }
@@ -113,6 +114,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             ToggleRow("Telemetry", telemetryEnabled) { telemetryEnabled = it }
             ToggleRow("Notifications", notifyEnabled) { notifyEnabled = it }
             ToggleRow("Sensors (steps + motion)", sensorsEnabled) { sensorsEnabled = it }
+            ToggleRow("Text-to-speech (say)", ttsEnabled) { ttsEnabled = it }
         }
 
         SettingsCard("Behaviour") {
@@ -149,6 +151,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     telemetryEnabled = telemetryEnabled,
                     notifyEnabled = notifyEnabled,
                     sensorsEnabled = sensorsEnabled,
+                    ttsEnabled = ttsEnabled,
                     autostartOnBoot = autostart,
                     reconnectOnNetworkChange = reconnect,
                 )

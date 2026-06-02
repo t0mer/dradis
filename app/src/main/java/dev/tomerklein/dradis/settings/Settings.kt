@@ -38,6 +38,7 @@ data class DradisSettings(
     val telemetryEnabled: Boolean = true,
     val notifyEnabled: Boolean = true,
     val sensorsEnabled: Boolean = true,
+    val ttsEnabled: Boolean = true,
 
     val autostartOnBoot: Boolean = true,
     val reconnectOnNetworkChange: Boolean = true,

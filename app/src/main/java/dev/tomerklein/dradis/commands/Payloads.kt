@@ -39,6 +39,12 @@ data class PhotoCommand(
     val camera: String = "rear",
 )
 
+/** Inbound `say` payload — speaks the text via text-to-speech. */
+@Serializable
+data class SayCommand(
+    val text: String = "",
+)
+
 /** Inbound `notify` payload — pushes a notification to the device's shade. */
 @Serializable
 data class NotifyCommand(
