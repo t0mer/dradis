@@ -5,8 +5,9 @@ maintains a persistent MQTT connection from a foreground service and reacts to
 inbound command topics — send SMS, get location, find-my-phone, take photo —
 while publishing telemetry (battery, charging state, location, online status).
 
-It is a native replacement for the third-party "Zanzito" app and is
-**wire-compatible** with the existing backend (Mosquitto broker + a Flask
+It is a native replacement for the third-party "Zanzito" app. The topic prefix
+is configurable and defaults to `dradis`; set it to `zanzito` to stay
+**wire-compatible** with the legacy backend (Mosquitto broker + a Flask
 `smssender.py` microservice publishing to `zanzito/<device>/sendsms/...`).
 
 A defining feature: DRADIS **picks one of two brokers based on the Wi-Fi network**
@@ -62,32 +63,32 @@ Min SDK 26, target/compile SDK 35, JDK 17, AGP 8.7.3 / Gradle 8.13.
 
 ## MQTT topic contract
 
-Base segment is the configurable device name (default prefix `zanzito`). QoS 1;
+Base segment is the configurable device name (default prefix `dradis`). QoS 1;
 `status`/`version` are retained.
 
 ### Inbound (subscribed)
 
 | Purpose | Topic | Payload |
 |---|---|---|
-| Send SMS (preferred) | `zanzito/<device>/sendsms` | `{"phone":"+972...","text":"hello"}` |
-| Send SMS (legacy) | `zanzito/<device>/sendsms/<phone>` | raw string = message text |
-| Get location now | `zanzito/<device>/getlocation` | empty / `{}` |
-| Find phone | `zanzito/<device>/ping` | optional `{"seconds":30}` (`0` stops) |
-| Take photo | `zanzito/<device>/takephoto` | `{"camera":"front"｜"rear"}` |
-| Push notification | `zanzito/<device>/notify` | `{"title":"…","text":"…","id"?:N}` (or raw text) |
-| Force telemetry | `zanzito/<device>/getstatus` | empty |
+| Send SMS (preferred) | `dradis/<device>/sendsms` | `{"phone":"+972...","text":"hello"}` |
+| Send SMS (legacy) | `dradis/<device>/sendsms/<phone>` | raw string = message text |
+| Get location now | `dradis/<device>/getlocation` | empty / `{}` |
+| Find phone | `dradis/<device>/ping` | optional `{"seconds":30}` (`0` stops) |
+| Take photo | `dradis/<device>/takephoto` | `{"camera":"front"｜"rear"}` |
+| Push notification | `dradis/<device>/notify` | `{"title":"…","text":"…","id"?:N}` (or raw text) |
+| Force telemetry | `dradis/<device>/getstatus` | empty |
 
 ### Outbound (published)
 
 | Purpose | Topic | Payload | Retained |
 |---|---|---|---|
-| Online status | `zanzito/<device>/status` | `1` online / `0` LWT | yes |
-| App version | `zanzito/<device>/version` | e.g. `1.0` | yes |
-| Device info | `zanzito/<device>/device_info` | see below | no |
-| Location | `zanzito/<device>/location` | `{"lat","lon","accuracy","time"}` | no |
-| Photo | `zanzito/<device>/photo` | `{"camera","time","jpeg_b64"}` | no |
-| SMS result | `zanzito/<device>/sendsms/result` | `{"phone","ok","error?"}` | no |
-| Log (diagnostics) | `zanzito/<device>/log` | free text | no |
+| Online status | `dradis/<device>/status` | `1` online / `0` LWT | yes |
+| App version | `dradis/<device>/version` | e.g. `1.0` | yes |
+| Device info | `dradis/<device>/device_info` | see below | no |
+| Location | `dradis/<device>/location` | `{"lat","lon","accuracy","time"}` | no |
+| Photo | `dradis/<device>/photo` | `{"camera","time","jpeg_b64"}` | no |
+| SMS result | `dradis/<device>/sendsms/result` | `{"phone","ok","error?"}` | no |
+| Log (diagnostics) | `dradis/<device>/log` | free text | no |
 
 `device_info` (legacy shape):
 
@@ -155,7 +156,7 @@ battery saver.
 
 - Prefer **TLS (port 8883)** for the WAN broker — without it, SMS text, location,
   and credentials travel in cleartext.
-- Anyone able to publish to `zanzito/<device>/sendsms` can send SMS and read the
+- Anyone able to publish to `dradis/<device>/sendsms` can send SMS and read the
   phone's location. Use **broker authentication + per-topic ACLs** and a
   non-guessable device name.
 - Credentials are stored locally via DataStore and never returned in plaintext

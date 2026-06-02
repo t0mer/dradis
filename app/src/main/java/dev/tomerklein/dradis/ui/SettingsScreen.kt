@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.tomerklein.dradis.ServiceLocator
+import dev.tomerklein.dradis.mqtt.Topics
 import dev.tomerklein.dradis.settings.BrokerConfig
 import dev.tomerklein.dradis.settings.DradisSettings
 import kotlinx.coroutines.launch
@@ -121,7 +122,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             onClick = {
                 val next = DradisSettings(
                     deviceName = deviceName.trim().ifBlank { "phone" },
-                    topicPrefix = prefix.trim().ifBlank { "zanzito" },
+                    topicPrefix = prefix.trim().ifBlank { Topics.DEFAULT_PREFIX },
                     lanBroker = BrokerConfig(
                         host = lanHost.trim(),
                         port = lanPort.toIntOrNull() ?: 1883,

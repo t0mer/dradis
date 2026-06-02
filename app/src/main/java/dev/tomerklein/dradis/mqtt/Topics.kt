@@ -4,7 +4,8 @@ package dev.tomerklein.dradis.mqtt
  * Single source of truth for every MQTT topic string (CLAUDE.md §5, §6).
  * No raw topic strings may appear anywhere else in the codebase.
  *
- * Base layout: `<prefix>/<device>/<leaf>` — e.g. `zanzito/tomer/sendsms`.
+ * Base layout: `<prefix>/<device>/<leaf>` — e.g. `dradis/tomer/sendsms`.
+ * Prefix defaults to `dradis`; set it to `zanzito` for the legacy backend.
  */
 class Topics(private val prefix: String, private val device: String) {
 
@@ -42,7 +43,7 @@ class Topics(private val prefix: String, private val device: String) {
     val log: String get() = "$base/log"
 
     companion object {
-        const val DEFAULT_PREFIX = "zanzito"
+        const val DEFAULT_PREFIX = "dradis"
 
         /** True if [topic] matches the legacy `.../sendsms/<phone>` form (and is
          *  not the preferred `.../sendsms` nor the `.../sendsms/result` topic). */
