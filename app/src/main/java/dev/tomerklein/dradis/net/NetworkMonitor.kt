@@ -63,8 +63,10 @@ class NetworkMonitor(
             // transient null so we don't flap LAN -> WAN and drop a good link.
             val read = extractSsid(caps!!)
             if (read != null) ssid = read
+            Log.i(TAG, "net update: wifi=true read=$read ssid=$ssid")
         } else {
             ssid = null
+            Log.i(TAG, "net update: wifi=false ssid=null")
         }
     }
 
@@ -95,8 +97,13 @@ class NetworkMonitor(
     private fun extractSsid(caps: NetworkCapabilities): String? {
         if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val info = caps.transportInfo as? WifiInfo
-            if (info != null) return normalize(info.ssid)
+            // transportInfo carries an unredacted WifiInfo only in live callbacks
+            // (with location permission). Via getNetworkCapabilities() — or when a
+            // VPN is the default network — the WifiInfo is absent or its SSID is
+            // redacted to "<unknown ssid>". In those cases fall through to
+            // WifiManager instead of returning null (which wrongly forces WAN).
+            val fromCaps = (caps.transportInfo as? WifiInfo)?.let { normalize(it.ssid) }
+            if (fromCaps != null) return fromCaps
         }
         return legacySsid()
     }
