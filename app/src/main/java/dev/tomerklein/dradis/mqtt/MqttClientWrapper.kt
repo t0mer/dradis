@@ -55,10 +55,14 @@ class MqttClientWrapper(
                 }
             }
             .addConnectedListener {
+                Log.i(TAG, "connected id=$clientId ${config.host}:${config.port}")
                 onStateChange(ConnState.CONNECTED)
                 onConnected()
             }
-            .addDisconnectedListener {
+            .addDisconnectedListener { ctx ->
+                // source=SERVER => broker closed us (e.g. another client with the
+                // same id took over); source=CLIENT => local/network error.
+                Log.i(TAG, "disconnected id=$clientId source=${ctx.source} cause=${ctx.cause}")
                 onStateChange(ConnState.DISCONNECTED)
             }
             .buildAsync()
