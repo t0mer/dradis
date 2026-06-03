@@ -18,12 +18,13 @@ data class SmsResult(
     val error: String? = null,
 )
 
-/** Outbound `location`. */
+/** Outbound `location`. Field names match Home Assistant's device_tracker
+ *  GPS attributes (`latitude`/`longitude`/`gps_accuracy`). */
 @Serializable
 data class LocationPayload(
-    val lat: Double,
-    val lon: Double,
-    val accuracy: Float,
+    val latitude: Double,
+    val longitude: Double,
+    @SerialName("gps_accuracy") val gpsAccuracy: Float,
     val time: Long,
 )
 

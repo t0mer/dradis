@@ -53,6 +53,7 @@ reconnects automatically as the phone moves between networks.
 | **Push notification** | Show a notification on the device's shade from a remote message; optionally read it aloud via TTS. |
 | **Text‑to‑speech** | Speak a remote message aloud. |
 | **Telemetry** | Battery / Wi‑Fi / device‑info / sensors / location, each on its own topic — on connect, on change, on demand, and on the heartbeat interval. |
+| **Home Assistant** | MQTT auto‑discovery: appears as one device with a device_tracker, sensors/binary‑sensors and command buttons. |
 | **Autostart** | Reconnects after boot (when enabled). |
 
 ---
@@ -106,7 +107,7 @@ are retained, everything else is not.
 | Battery | `<prefix>/<device>/battery` | `{battery_level, charging, charge_type}` | — |
 | Wi‑Fi | `<prefix>/<device>/wifi` | `{connected, ssid}` | — |
 | Sensors | `<prefix>/<device>/sensors` | `{step_counter, steps_detected, motion_detected, time}` | — |
-| Location | `<prefix>/<device>/location` | `{lat, lon, accuracy, time}` | — |
+| Location | `<prefix>/<device>/location` | `{latitude, longitude, gps_accuracy, time}` | — |
 | Photo | `<prefix>/<device>/photo` | `{camera, time, jpeg_b64}` | — |
 | SMS result | `<prefix>/<device>/sendsms/result` | `{phone, ok, error?}` | — |
 | Log (diagnostics) | `<prefix>/<device>/log` | free text | — |
@@ -120,8 +121,8 @@ are retained, everything else is not.
 { "connected": true, "ssid": "Home-WiFi" }
 // sensors       (step_counter null if the device has no step hardware)
 { "step_counter": 18342, "steps_detected": 12, "motion_detected": false, "time": 1780473149 }
-// location
-{ "lat": 32.0853, "lon": 34.7818, "accuracy": 5.0, "time": 1780473149 }
+// location  (Home Assistant device_tracker GPS attribute names)
+{ "latitude": 32.0853, "longitude": 34.7818, "gps_accuracy": 5.0, "time": 1780473149 }
 // device_info
 { "time": 1780473149, "device_info": "Samsung SM-S926B (15)", "screen_locked": true }
 ```
@@ -140,6 +141,30 @@ mosquitto_pub -h <broker> -t $DEV/getstatus   -m ''
 ```
 
 ---
+
+## Home Assistant
+
+DRADIS supports **MQTT auto‑discovery**. With **Settings → Home Assistant → MQTT
+discovery** enabled (default), it publishes retained config topics under the
+discovery prefix (default `homeassistant`) on connect, so HA auto‑creates a
+single **DRADIS &lt;device&gt;** device with:
+
+| Entity | Type | Source |
+|---|---|---|
+| Location | `device_tracker` (GPS) | `…/location` (`latitude`/`longitude`/`gps_accuracy`) |
+| Battery | `sensor` (battery %, measurement) | `…/battery` |
+| Charging | `binary_sensor` (battery_charging) | `…/battery` |
+| Charge type | `sensor` | `…/battery` |
+| Wi‑Fi | `binary_sensor` (connectivity) | `…/wifi` |
+| SSID | `sensor` | `…/wifi` |
+| Steps | `sensor` (total_increasing) | `…/sensors` |
+| Motion | `binary_sensor` (motion) | `…/sensors` |
+| Find phone / Take photo / Update location / Refresh status | `button` | command topics |
+
+Entity availability follows the retained `…/status` topic (LWT), so the device
+shows **unavailable** when the phone drops off. Requires Home Assistant's
+**MQTT integration** pointed at the same broker. Disabling the toggle clears the
+discovery configs (empty retained payloads).
 
 ## Settings reference
 
@@ -164,6 +189,8 @@ Update interval (seconds).
 **Inbound** — SMS (enable · notify when sent) · Notifications (enable · read aloud
 via TTS) · Text‑to‑speech (enable) · Alarm/find‑phone (enable · duration · ringtone
 · override silent/DND).
+
+**Integrations** — Home Assistant MQTT discovery (on/off) · Discovery prefix.
 
 **Behaviour** — Autostart on boot · Reconnect on network change.
 
