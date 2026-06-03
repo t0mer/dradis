@@ -131,6 +131,7 @@ class MqttService : LifecycleService(), CommandSink {
         networkMonitor = NetworkMonitor(this) { onNetworkChanged() }
         networkMonitor.start()
 
+        connScope.launch { settingsRepo.migrate() }
         connScope.launch {
             settingsRepo.settings.collect { s ->
                 current = s
@@ -242,9 +243,16 @@ class MqttService : LifecycleService(), CommandSink {
 
     private fun onInbound(topic: String, bytes: ByteArray) {
         val text = bytes.toString(StandardCharsets.UTF_8)
-        mqttLog.inbound(topic, text, now())
+        // The handler gets the full payload; only the in-app log is redacted +
+        // length-capped so PII (phone numbers, SMS text) isn't retained verbatim.
+        mqttLog.inbound(redactPii(topic), redactPii(text).take(MAX_LOGGED_PAYLOAD), now())
         ioScope.launch { router.handle(topic, text) }
     }
+
+    /** Mask phone-number-like digit runs (keep the last 3 for context). Applied
+     *  to inbound only — outbound location coordinates must stay intact. */
+    private fun redactPii(s: String): String =
+        Regex("""\d{7,}""").replace(s) { "•••" + it.value.takeLast(3) }
 
     // --- Notification + status ----------------------------------------------
     private fun updateStatus(state: ConnState, sel: BrokerSelector.Selection?, detail: String) {
@@ -324,6 +332,7 @@ class MqttService : LifecycleService(), CommandSink {
         private const val CHANNEL_ID = "dradis_connection"
         private const val NOTIFICATION_ID = 1001
         private const val DEBOUNCE_MS = 2500L
+        private const val MAX_LOGGED_PAYLOAD = 300
 
         fun start(context: Context) {
             val intent = Intent(context, MqttService::class.java)

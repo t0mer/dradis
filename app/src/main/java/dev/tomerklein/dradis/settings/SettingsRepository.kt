@@ -15,9 +15,11 @@ import kotlinx.serialization.json.Json
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "dradis_settings")
 
 /**
- * Reads/writes [DradisSettings] via Jetpack DataStore (Preferences), storing the
- * whole object as one JSON blob. Credentials live here at runtime — never in
- * code or git (CLAUDE.md §14).
+ * Reads/writes [DradisSettings] via Jetpack DataStore (Preferences). The whole
+ * object is serialized to JSON and **encrypted at rest** with [SecureStore]
+ * (AES-256-GCM, Android Keystore) so broker credentials and the CA certificate
+ * are never stored in plaintext. Legacy plaintext blobs are read transparently
+ * and re-encrypted on the next save (migration).
  */
 class SettingsRepository(private val context: Context) {
 
@@ -25,18 +27,34 @@ class SettingsRepository(private val context: Context) {
     private val key = stringPreferencesKey("settings_json")
 
     val settings: Flow<DradisSettings> = context.dataStore.data.map { prefs ->
-        prefs[key]?.let { runCatching { json.decodeFromString<DradisSettings>(it) }.getOrNull() }
-            ?: DradisSettings()
+        prefs[key]?.let { decode(it) } ?: DradisSettings()
     }
 
     suspend fun update(transform: (DradisSettings) -> DradisSettings) {
         context.dataStore.edit { prefs ->
-            val current = prefs[key]?.let {
-                runCatching { json.decodeFromString<DradisSettings>(it) }.getOrNull()
-            } ?: DradisSettings()
-            prefs[key] = json.encodeToString(transform(current))
+            val current = prefs[key]?.let { decode(it) } ?: DradisSettings()
+            prefs[key] = SecureStore.encrypt(json.encodeToString(transform(current)))
         }
     }
 
     suspend fun set(settings: DradisSettings) = update { settings }
+
+    /** Re-encrypt a legacy plaintext blob in place (run once at startup). */
+    suspend fun migrate() {
+        context.dataStore.edit { prefs ->
+            val stored = prefs[key] ?: return@edit
+            val alreadyEncrypted = runCatching { SecureStore.decrypt(stored) }.isSuccess
+            if (!alreadyEncrypted) {
+                runCatching { json.decodeFromString<DradisSettings>(stored) }.getOrNull()?.let {
+                    prefs[key] = SecureStore.encrypt(json.encodeToString(it))
+                }
+            }
+        }
+    }
+
+    /** Decrypt-then-parse; falls back to legacy plaintext JSON for migration. */
+    private fun decode(stored: String): DradisSettings? {
+        val jsonStr = runCatching { SecureStore.decrypt(stored) }.getOrNull() ?: stored
+        return runCatching { json.decodeFromString<DradisSettings>(jsonStr) }.getOrNull()
+    }
 }
