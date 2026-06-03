@@ -37,8 +37,9 @@ class NetworkMonitor(
         }
 
         override fun onLost(network: Network) {
-            update(null)
-            onChange()
+            // Re-evaluate the active network rather than blindly clearing — another
+            // network (or the same Wi-Fi) may still be connected.
+            refresh()
         }
 
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
@@ -56,7 +57,15 @@ class NetworkMonitor(
     private fun update(caps: NetworkCapabilities?) {
         val isWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
         onWifi = isWifi
-        ssid = if (isWifi) extractSsid(caps!!) else null
+        if (isWifi) {
+            // The SSID is not present in every capabilities callback. Update it
+            // only when we actually read a name; keep the last-known one on a
+            // transient null so we don't flap LAN -> WAN and drop a good link.
+            val read = extractSsid(caps!!)
+            if (read != null) ssid = read
+        } else {
+            ssid = null
+        }
     }
 
     fun start() {
