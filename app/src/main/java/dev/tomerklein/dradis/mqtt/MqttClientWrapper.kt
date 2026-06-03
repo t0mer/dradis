@@ -8,6 +8,7 @@ import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client
 import dev.tomerklein.dradis.settings.BrokerConfig
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 private const val TAG = "dradis.mqtt"
 
@@ -35,7 +36,12 @@ class MqttClientWrapper(
             .identifier(clientId)
             .serverHost(config.host)
             .serverPort(config.port)
-            .automaticReconnectWithDefaultConfig()
+            // Default backoff caps at 2 min, which makes reconnects feel stuck.
+            // Retry quickly and cap the wait so we recover within ~20s.
+            .automaticReconnect()
+            .initialDelay(1, TimeUnit.SECONDS)
+            .maxDelay(20, TimeUnit.SECONDS)
+            .applyAutomaticReconnect()
             .apply {
                 if (config.tls) {
                     val tmf = TlsCerts.trustManagerFactory(config.caCert)
@@ -66,7 +72,9 @@ class MqttClientWrapper(
         }
 
         val connect = c.connectWith()
-            .keepAlive(60)
+            // Shorter keep-alive detects dead links faster and keeps NAT/firewall
+            // mappings alive on cellular (which often time out around 30-60s).
+            .keepAlive(45)
             .cleanSession(true)
         if (config.username.isNotBlank()) {
             connect.simpleAuth()
