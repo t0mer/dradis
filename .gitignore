@@ -46,6 +46,9 @@ keystore.properties
 /dist/
 /build/
 
+# Scratch reference images (not part of the app)
+/screenshots/
+
 # Editor / OS
 .vscode/
 *.swp
