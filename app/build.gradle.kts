@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.Properties
 
 plugins {
@@ -45,6 +48,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Surfaced in the UI / version telemetry topic.
         buildConfigField("String", "DRADIS_VERSION", "\"$versionName\"")
+        // Build/release date of this version, shown on the About screen.
+        val buildDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
     }
 
     signingConfigs {

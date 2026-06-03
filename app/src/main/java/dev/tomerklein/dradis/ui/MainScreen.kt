@@ -3,6 +3,7 @@ package dev.tomerklein.dradis.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,7 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-private enum class Tab(val label: String) { STATUS("Status"), SETTINGS("Settings"), LOGS("Logs") }
+private enum class Tab(val label: String) { STATUS("Status"), SETTINGS("Settings"), LOGS("Logs"), ABOUT("About") }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,12 @@ fun MainScreen() {
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
                     label = { Text(Tab.LOGS.label) },
                 )
+                NavigationBarItem(
+                    selected = tab == Tab.ABOUT,
+                    onClick = { tab = Tab.ABOUT },
+                    icon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                    label = { Text(Tab.ABOUT.label) },
+                )
             }
         },
     ) { inner ->
@@ -56,6 +63,7 @@ fun MainScreen() {
             Tab.STATUS -> StatusScreen(modifier)
             Tab.SETTINGS -> SettingsScreen(modifier)
             Tab.LOGS -> LogsScreen(modifier)
+            Tab.ABOUT -> AboutScreen(modifier)
         }
     }
 }
