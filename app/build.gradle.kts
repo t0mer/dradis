@@ -15,7 +15,8 @@ fun versionCodeFrom(version: String): Int {
     return (year.toInt() - 2000) * 10000 + month.toInt() * 100 + patch.toInt()
 }
 
-// Read signing credentials from a git-ignored keystore.properties if present.
+// Signing credentials: prefer environment variables (CI / no plaintext file on
+// disk), falling back to a git-ignored keystore.properties for local builds.
 // Never hardcode passwords in the build script.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
@@ -23,6 +24,9 @@ val keystoreProps = Properties().apply {
         keystorePropsFile.inputStream().use { load(it) }
     }
 }
+fun signingCred(envVar: String, propKey: String): String? =
+    System.getenv(envVar) ?: keystoreProps.getProperty(propKey)
+val releaseStoreFile = signingCred("DRADIS_KEYSTORE_FILE", "storeFile")
 
 android {
     namespace = "dev.tomerklein.dradis"
@@ -44,12 +48,12 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropsFile.exists()) {
+        if (releaseStoreFile != null) {
             create("release") {
-                storeFile = file(keystoreProps.getProperty("storeFile"))
-                storePassword = keystoreProps.getProperty("storePassword")
-                keyAlias = keystoreProps.getProperty("keyAlias")
-                keyPassword = keystoreProps.getProperty("keyPassword")
+                storeFile = file(releaseStoreFile)
+                storePassword = signingCred("DRADIS_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingCred("DRADIS_KEY_ALIAS", "keyAlias")
+                keyPassword = signingCred("DRADIS_KEY_PASSWORD", "keyPassword")
             }
         }
     }
@@ -62,7 +66,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (keystorePropsFile.exists()) {
+            if (releaseStoreFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
