@@ -28,6 +28,7 @@ import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.commands.TtsSpeaker
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.DradisSettings
+import dev.tomerklein.dradis.telemetry.LocationPublisher
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
 import dev.tomerklein.dradis.telemetry.SensorReporter
 import dev.tomerklein.dradis.telemetry.TelemetryReporter
@@ -248,8 +249,12 @@ class MqttService : LifecycleService(), CommandSink {
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
         hassDiscovery.publish()
+        // Send a full report immediately on connect — first-save connect and
+        // every reconnect (incl. after a network change) — so subscribers get
+        // fresh state without waiting for the next update-interval tick.
         if (current.telemetryEnabled) telemetryReporter.publishAll()
         if (current.sensorsEnabled) sensorReporter.publish()
+        if (current.locationEnabled) ioScope.launch { LocationPublisher.publishCurrent(this@MqttService) }
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }
