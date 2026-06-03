@@ -75,6 +75,7 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var sensorReporter: SensorReporter
     private lateinit var periodicReporter: PeriodicReporter
     private lateinit var ttsSpeaker: TtsSpeaker
+    private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
 
     // --- CommandSink ---------------------------------------------------------
@@ -137,6 +138,7 @@ class MqttService : LifecycleService(), CommandSink {
                 current = s
                 currentTopics = Topics(s.topicPrefix, s.deviceName)
                 periodicReporter.restart()
+                hassDiscovery.publish()
                 scheduleReselect(debounceMs = 0)
             }
         }
@@ -235,6 +237,7 @@ class MqttService : LifecycleService(), CommandSink {
         c.subscribe(t.inboundTopics())
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
+        hassDiscovery.publish()
         if (current.telemetryEnabled) telemetryReporter.publishAll()
         if (current.sensorsEnabled) sensorReporter.publish()
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")

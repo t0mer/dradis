@@ -39,10 +39,10 @@ object LocationPublisher {
         if (!hasPermission(context)) return null
         val location = currentLocation(context, sink.settings.locationHighAccuracy) ?: return null
         return LocationPayload(
-            lat = location.latitude,
-            lon = location.longitude,
-            accuracy = location.accuracy,
-            time = location.time / 1000, // epoch seconds, matching legacy
+            latitude = location.latitude,
+            longitude = location.longitude,
+            gpsAccuracy = location.accuracy,
+            time = location.time / 1000, // epoch seconds
         )
     }
 
