@@ -100,7 +100,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Field("Port", lanPort, KeyboardType.Number) { lanPort = it }
             Field("Username", lanUser) { lanUser = it }
             Field("Password", lanPass, KeyboardType.Password, password = true) { lanPass = it }
-            ToggleRow("Use TLS", checked = lanTls) { lanTls = it }
+            ToggleRow("Use TLS", checked = lanTls) {
+                lanTls = it
+                lanPort = syncTlsPort(lanPort, it)
+            }
         }
 
         SettingsCard("WAN broker (mobile / away)") {
@@ -108,7 +111,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Field("Port", wanPort, KeyboardType.Number) { wanPort = it }
             Field("Username", wanUser) { wanUser = it }
             Field("Password", wanPass, KeyboardType.Password, password = true) { wanPass = it }
-            ToggleRow("Use TLS", checked = wanTls) { wanTls = it }
+            ToggleRow("Use TLS", checked = wanTls) {
+                wanTls = it
+                wanPort = syncTlsPort(wanPort, it)
+            }
         }
 
         SettingsCard("Update modes") {
@@ -224,6 +230,14 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save settings") }
     }
+}
+
+/** Keep the broker port in step with the TLS toggle: swap between the standard
+ *  1883 (plain) and 8883 (TLS) ports, but leave a custom port untouched. */
+private fun syncTlsPort(current: String, tls: Boolean): String = when {
+    tls && (current.isBlank() || current.trim() == "1883") -> "8883"
+    !tls && (current.isBlank() || current.trim() == "8883") -> "1883"
+    else -> current
 }
 
 @Composable
