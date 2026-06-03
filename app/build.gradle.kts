@@ -7,6 +7,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Derive a monotonic integer versionCode from a YYYY.M.PATCH version string,
+// e.g. 2026.6.3 -> 260603. Falls back to 1 for non-date versions (local "dev").
+fun versionCodeFrom(version: String): Int {
+    val m = Regex("""(\d+)\.(\d+)\.(\d+)""").matchEntire(version) ?: return 1
+    val (year, month, patch) = m.destructured
+    return (year.toInt() - 2000) * 10000 + month.toInt() * 100 + patch.toInt()
+}
+
 // Read signing credentials from a git-ignored keystore.properties if present.
 // Never hardcode passwords in the build script.
 val keystorePropsFile = rootProject.file("keystore.properties")
@@ -24,8 +32,11 @@ android {
         applicationId = "dev.tomerklein.dradis"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Version is date-based (YYYY.M.PATCH), passed in by the release workflow
+        // via -PdradisVersion=...; falls back to a dev default for local builds.
+        val dradisVersion = (project.findProperty("dradisVersion") as String?) ?: "dev"
+        versionName = dradisVersion
+        versionCode = versionCodeFrom(dradisVersion)
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Surfaced in the UI / version telemetry topic.

@@ -35,7 +35,12 @@ captures/
 # Signing — never commit
 *.jks
 *.keystore
+*.jks.base64
 keystore.properties
+
+# Build artifacts
+*.apk
+*.aab
 
 # Build output
 /dist/
