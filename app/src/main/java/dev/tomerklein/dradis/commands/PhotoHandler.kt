@@ -24,6 +24,13 @@ class PhotoHandler : CommandHandler {
             sink.logInfo("Camera disabled in settings; ignoring")
             return
         }
+        // Ignore empty payloads (e.g. a retained-clear from MQTT Explorer's
+        // "delete topic") so they don't trigger a spurious capture. Send `{}`
+        // to use the default camera.
+        if (payload.isBlank()) {
+            sink.logInfo("Photo ignored: empty payload (retained-clear)")
+            return
+        }
         if (ContextCompat.checkSelfPermission(sink.appContext, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {

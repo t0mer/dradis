@@ -19,6 +19,13 @@ class PingHandler : CommandHandler {
             sink.logInfo("Ping disabled in settings; ignoring")
             return
         }
+        // An empty payload is not a command — it's how brokers/tools (e.g.
+        // MQTT Explorer's "delete topic") clear a retained message. Acting on it
+        // would fire the alarm spuriously. Require explicit content to trigger.
+        if (payload.isBlank()) {
+            sink.logInfo("Ping ignored: empty payload (retained-clear)")
+            return
+        }
         val seconds = payload.takeIf { it.isNotBlank() && it.trim() != "{}" }
             ?.let { runCatching { json.decodeFromString<PingCommand>(it) }.getOrNull()?.seconds }
             ?: sink.settings.alarmDurationSeconds
