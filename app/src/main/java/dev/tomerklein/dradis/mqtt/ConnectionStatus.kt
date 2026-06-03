@@ -3,7 +3,7 @@ package dev.tomerklein.dradis.mqtt
 /** Which broker the selector picked for the current network. */
 enum class BrokerKind { LAN, WAN, NONE }
 
-enum class ConnState { DISCONNECTED, CONNECTING, CONNECTED }
+enum class ConnState { DISCONNECTED, CONNECTING, CONNECTED, UNAUTHORIZED }
 
 /** Snapshot of the live MQTT connection, surfaced on the Status screen. */
 data class ConnectionStatus(

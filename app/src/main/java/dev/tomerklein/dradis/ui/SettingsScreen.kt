@@ -264,7 +264,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Button(
             onClick = {
-                val next = DradisSettings(
+                // copy() from the loaded settings so non-UI fields (e.g. the
+                // persisted per-install clientId) are preserved — building a fresh
+                // DradisSettings() here would reset them to defaults on every save.
+                val next = saved.copy(
                     deviceName = deviceName.trim().ifBlank { "phone" },
                     topicPrefix = prefix.trim().ifBlank { Topics.DEFAULT_PREFIX },
                     lanBroker = BrokerConfig(
