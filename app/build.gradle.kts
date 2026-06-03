@@ -59,6 +59,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Sign debug with the release key when it's available so debug and
+            // release APKs share one signature and can update each other in
+            // place. Without this, debug uses the auto-generated per-machine
+            // debug keystore, and switching between a debug- and release-signed
+            // APK triggers Android's "you must uninstall first" signature
+            // mismatch (which wipes settings). Falls back to the default debug
+            // signing for contributors who don't have the release keystore.
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
