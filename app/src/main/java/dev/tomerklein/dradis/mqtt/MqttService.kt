@@ -83,6 +83,14 @@ class MqttService : LifecycleService(), CommandSink {
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
 
+    // Bumped on every (re)connect. A superseded client's async connect/disconnect
+    // listeners carry the generation they were created with; if it no longer
+    // matches, their callbacks are ignored — otherwise the OLD client's late
+    // "disconnected" callback clobbers the NEW client's "connected" status, so
+    // the UI shows Disconnected while commands still flow.
+    @Volatile
+    private var connGen = 0
+
     // Re-resolve the SSID when the app is brought to the foreground (e.g. right
     // after the user grants location permission), so we don't stay on WAN when
     // we're actually on a home Wi-Fi whose SSID wasn't readable at first.
@@ -258,6 +266,9 @@ class MqttService : LifecycleService(), CommandSink {
 
     private fun reconnect(sel: BrokerSelector.Selection) {
         client?.disconnect()
+        // New generation: the just-disconnected client's late listeners (and any
+        // earlier one's) will no longer match and are ignored.
+        val gen = ++connGen
         logInfo("Selecting ${sel.kind} broker ${sel.config.host}:${sel.config.port} (ssid=${sel.ssid ?: "none"})")
 
         // Stable per-install id (UUID-based, persisted). Fallback only if a connect
@@ -271,8 +282,8 @@ class MqttService : LifecycleService(), CommandSink {
         val wrapper = MqttClientWrapper(
             clientId = clientId,
             onMessage = { topic, bytes, retained -> onInbound(topic, bytes, retained) },
-            onConnected = { onConnected() },
-            onStateChange = { state -> updateStatus(state, selection, state.name) },
+            onConnected = { if (gen == connGen) onConnected() },
+            onStateChange = { state -> if (gen == connGen) updateStatus(state, selection, state.name) },
         )
         client = wrapper
         updateStatus(ConnState.CONNECTING, sel, "Connecting to ${sel.config.host}")
