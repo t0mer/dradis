@@ -91,7 +91,7 @@ are retained, everything else is not.
 | Send SMS (preferred) | `<prefix>/<device>/sendsms` | `{"phone":"+972…","text":"hello"}` |
 | Send SMS (legacy) | `<prefix>/<device>/sendsms/<phone>` | raw string = message text |
 | Get location now | `<prefix>/<device>/getlocation` | empty / `{}` |
-| Find phone | `<prefix>/<device>/ping` | optional `{"seconds":30}`; `0` stops |
+| Find phone | `<prefix>/<device>/ping` | optional `{"seconds":3}` (default); `0` stops |
 | Take photo | `<prefix>/<device>/takephoto` | `{"camera":"front"｜"rear"}` (empty → default) |
 | Push notification | `<prefix>/<device>/notify` | `{"title":"…","text":"…","id"?:N}` or raw text |
 | Text‑to‑speech | `<prefix>/<device>/say` | `{"text":"…"}` or raw text |

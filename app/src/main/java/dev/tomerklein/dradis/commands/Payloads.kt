@@ -31,7 +31,7 @@ data class LocationPayload(
 /** Inbound `ping` payload (optional duration). */
 @Serializable
 data class PingCommand(
-    val seconds: Int = 30,
+    val seconds: Int = 3,
 )
 
 /** Inbound `takephoto` payload. Empty `camera` → use the configured default. */

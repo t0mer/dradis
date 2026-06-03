@@ -55,7 +55,7 @@ data class DradisSettings(
     val locationHighAccuracy: Boolean = true,
 
     // Alarm / find-phone options.
-    val alarmDurationSeconds: Int = 30,
+    val alarmDurationSeconds: Int = 3,
     val alarmOverrideDnd: Boolean = true,
     /** Ringtone URI to play for the alarm; blank → system default alarm. */
     val alarmRingtoneUri: String = "",
