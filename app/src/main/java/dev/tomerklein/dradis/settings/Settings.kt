@@ -25,6 +25,11 @@ data class DradisSettings(
     val deviceName: String = "phone",
     val topicPrefix: String = Topics.DEFAULT_PREFIX,
 
+    /** Stable, per-install MQTT client identifier. Generated once (UUID-based)
+     *  on first run and persisted so every device gets a unique id — duplicate
+     *  client ids make the broker disconnect the older session. Not user-editable. */
+    val clientId: String = "",
+
     val lanBroker: BrokerConfig = BrokerConfig(port = 1883),
     val wanBroker: BrokerConfig = BrokerConfig(port = 8883, tls = true),
     val homeSsids: List<String> = emptyList(),
