@@ -1,9 +1,13 @@
 package dev.tomerklein.dradis.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.media.RingtoneManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.IntentCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,6 +90,19 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var pingEnabled by rememberSaveable(saved.pingEnabled) { mutableStateOf(saved.pingEnabled) }
     var alarmDuration by rememberSaveable(saved.alarmDurationSeconds) { mutableStateOf(saved.alarmDurationSeconds.toString()) }
     var alarmOverrideDnd by rememberSaveable(saved.alarmOverrideDnd) { mutableStateOf(saved.alarmOverrideDnd) }
+    var alarmRingtone by rememberSaveable(saved.alarmRingtoneUri) { mutableStateOf(saved.alarmRingtoneUri) }
+    var alarmRingtoneTitle by rememberSaveable(saved.alarmRingtoneTitle) { mutableStateOf(saved.alarmRingtoneTitle) }
+    val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uri = result.data?.let {
+                IntentCompat.getParcelableExtra(it, RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            }
+            alarmRingtone = uri?.toString().orEmpty()
+            alarmRingtoneTitle = uri?.let {
+                runCatching { RingtoneManager.getRingtone(context, it)?.getTitle(context) }.getOrNull()
+            }.orEmpty()
+        }
+    }
     var cameraEnabled by rememberSaveable(saved.cameraEnabled) { mutableStateOf(saved.cameraEnabled) }
     var cameraDefaultRear by rememberSaveable(saved.cameraDefaultRear) { mutableStateOf(saved.cameraDefaultRear) }
     var telemetryEnabled by rememberSaveable(saved.telemetryEnabled) { mutableStateOf(saved.telemetryEnabled) }
@@ -205,6 +222,26 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Field("Alarm duration (seconds)", alarmDuration, KeyboardType.Number, enabled = pingEnabled) {
                 alarmDuration = it
             }
+            RingtoneRow(
+                title = alarmRingtoneTitle.ifBlank { "Default alarm" },
+                enabled = pingEnabled,
+                onPick = {
+                    val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select alarm ringtone")
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        putExtra(
+                            RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI,
+                            RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM),
+                        )
+                        if (alarmRingtone.isNotBlank()) {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(alarmRingtone))
+                        }
+                    }
+                    runCatching { ringtonePicker.launch(intent) }
+                },
+            )
             ToggleRow("Override silent / DND", "ring through Do-Not-Disturb", alarmOverrideDnd, enabled = pingEnabled) {
                 alarmOverrideDnd = it
             }
@@ -252,6 +289,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     locationHighAccuracy = locationHighAccuracy,
                     alarmDurationSeconds = alarmDuration.toIntOrNull()?.coerceIn(1, 600) ?: 30,
                     alarmOverrideDnd = alarmOverrideDnd,
+                    alarmRingtoneUri = alarmRingtone,
+                    alarmRingtoneTitle = alarmRingtoneTitle,
                     cameraDefaultRear = cameraDefaultRear,
                     notifyReadAloud = notifyReadAloud,
                     autostartOnBoot = autostart,
@@ -274,6 +313,21 @@ private fun readTextSafe(context: Context, uri: Uri): String =
     runCatching {
         context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
     }.getOrDefault("")
+
+@Composable
+private fun RingtoneRow(title: String, enabled: Boolean, onPick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Ringtone")
+            Text(title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedButton(onClick = onPick, enabled = enabled) { Text("Choose") }
+    }
+}
 
 @Composable
 private fun CertRow(loaded: Boolean, onPick: () -> Unit, onClear: () -> Unit) {

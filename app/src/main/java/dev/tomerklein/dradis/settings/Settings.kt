@@ -52,6 +52,9 @@ data class DradisSettings(
     // Alarm / find-phone options.
     val alarmDurationSeconds: Int = 30,
     val alarmOverrideDnd: Boolean = true,
+    /** Ringtone URI to play for the alarm; blank → system default alarm. */
+    val alarmRingtoneUri: String = "",
+    val alarmRingtoneTitle: String = "",
 
     // Camera options — default camera when a takephoto request omits one.
     val cameraDefaultRear: Boolean = true,

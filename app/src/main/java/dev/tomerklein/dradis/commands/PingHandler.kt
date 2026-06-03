@@ -28,6 +28,7 @@ class PingHandler : CommandHandler {
         } else {
             PingPlayer.start(
                 sink.appContext, seconds, sink.settings.alarmOverrideDnd,
+                sink.settings.alarmRingtoneUri,
             ) { msg -> sink.logInfo(msg) }
         }
     }

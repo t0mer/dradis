@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -41,7 +42,13 @@ object PingPlayer {
 
     val isActive: Boolean get() = player != null
 
-    fun start(context: Context, seconds: Int, overrideDnd: Boolean, log: (String) -> Unit) {
+    fun start(
+        context: Context,
+        seconds: Int,
+        overrideDnd: Boolean,
+        ringtoneUri: String?,
+        log: (String) -> Unit,
+    ) {
         appContext = context.applicationContext
         stopInternal()
 
@@ -64,7 +71,8 @@ object PingPlayer {
             }
         }
 
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
+        val uri = ringtoneUri?.takeIf { it.isNotBlank() }?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
         if (uri == null) {
             log("No alarm/ringtone available to play")
