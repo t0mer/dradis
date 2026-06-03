@@ -76,7 +76,7 @@ jobs:
 
       - name: Create GitHub Release
         # TODO: pin to a commit SHA for the chosen v2.x release (per guidelines).
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: dist/*.apk
