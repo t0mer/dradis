@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.lifecycleScope
 import dev.tomerklein.dradis.BuildConfig
 import dev.tomerklein.dradis.MainActivity
 import dev.tomerklein.dradis.R
@@ -32,7 +31,11 @@ import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
 import dev.tomerklein.dradis.telemetry.SensorReporter
 import dev.tomerklein.dradis.telemetry.TelemetryReporter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
@@ -55,8 +58,17 @@ class MqttService : LifecycleService(), CommandSink {
     @Volatile
     private var currentTopics: Topics = Topics(current.topicPrefix, current.deviceName)
 
+    @Volatile
     private var client: MqttClientWrapper? = null
+    @Volatile
     private var selection: BrokerSelector.Selection? = null
+
+    // Connection management runs serially OFF the main thread (building/closing
+    // the HiveMQ/Netty client must never block the UI/service main thread).
+    private val connScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    // Inbound command handlers run here so a slow handler can't stall the link.
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var router: CommandRouter
     private lateinit var telemetryReporter: TelemetryReporter
@@ -98,7 +110,7 @@ class MqttService : LifecycleService(), CommandSink {
         sensorReporter = SensorReporter(this)
         sensorReporter.start()
         ttsSpeaker = TtsSpeaker(this)
-        periodicReporter = PeriodicReporter(this, lifecycleScope, telemetryReporter, sensorReporter)
+        periodicReporter = PeriodicReporter(this, ioScope, telemetryReporter, sensorReporter)
 
         router = CommandRouter(
             sink = this,
@@ -119,7 +131,7 @@ class MqttService : LifecycleService(), CommandSink {
         networkMonitor = NetworkMonitor(this) { onNetworkChanged() }
         networkMonitor.start()
 
-        lifecycleScope.launch {
+        connScope.launch {
             settingsRepo.settings.collect { s ->
                 current = s
                 currentTopics = Topics(s.topicPrefix, s.deviceName)
@@ -143,6 +155,8 @@ class MqttService : LifecycleService(), CommandSink {
         ttsSpeaker.shutdown()
         client?.disconnect()
         client = null
+        connScope.cancel()
+        ioScope.cancel()
         ServiceLocator.updateConnection(ConnectionStatus())
         super.onDestroy()
     }
@@ -153,10 +167,11 @@ class MqttService : LifecycleService(), CommandSink {
         else scheduleReselect(debounceMs = 0)
     }
 
-    /** Debounce rapid network flaps before re-evaluating the broker (§7). */
+    /** Debounce rapid network flaps before re-evaluating the broker (§7).
+     *  Runs on connScope (serial, off the main thread). */
     private fun scheduleReselect(debounceMs: Long) {
         reselectJob?.cancel()
-        reselectJob = lifecycleScope.launch {
+        reselectJob = connScope.launch {
             if (debounceMs > 0) delay(debounceMs)
             applySelection()
         }
@@ -180,10 +195,19 @@ class MqttService : LifecycleService(), CommandSink {
             prev.config != sel.config
         selection = sel
 
-        if (brokerChanged || client?.isConnected != true) {
+        // Only (re)build the client when the selected broker actually changes
+        // (or none exists yet). When it's the same broker, HiveMQ's automatic
+        // reconnect handles connectivity — rebuilding here on every network tick
+        // would leak Netty thread pools and ANR the process.
+        if (brokerChanged || client == null) {
             reconnect(sel)
         } else {
-            updateStatus(ConnState.CONNECTED, sel, "Connected")
+            val connected = client?.isConnected == true
+            updateStatus(
+                if (connected) ConnState.CONNECTED else ConnState.CONNECTING,
+                sel,
+                if (connected) "Connected" else "Connecting…",
+            )
         }
     }
 
@@ -219,7 +243,7 @@ class MqttService : LifecycleService(), CommandSink {
     private fun onInbound(topic: String, bytes: ByteArray) {
         val text = bytes.toString(StandardCharsets.UTF_8)
         mqttLog.inbound(topic, text, now())
-        lifecycleScope.launch { router.handle(topic, text) }
+        ioScope.launch { router.handle(topic, text) }
     }
 
     // --- Notification + status ----------------------------------------------
