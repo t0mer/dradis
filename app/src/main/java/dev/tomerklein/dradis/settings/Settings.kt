@@ -62,6 +62,10 @@ data class DradisSettings(
     // Voice / TTS options.
     val notifyReadAloud: Boolean = false,
 
+    // Home Assistant MQTT discovery.
+    val homeAssistantEnabled: Boolean = true,
+    val homeAssistantPrefix: String = "homeassistant",
+
     val autostartOnBoot: Boolean = true,
     val reconnectOnNetworkChange: Boolean = true,
 )

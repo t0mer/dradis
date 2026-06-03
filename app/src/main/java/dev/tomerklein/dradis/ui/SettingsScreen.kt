@@ -111,6 +111,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var sensorsEnabled by rememberSaveable(saved.sensorsEnabled) { mutableStateOf(saved.sensorsEnabled) }
     var ttsEnabled by rememberSaveable(saved.ttsEnabled) { mutableStateOf(saved.ttsEnabled) }
 
+    var hassEnabled by rememberSaveable(saved.homeAssistantEnabled) { mutableStateOf(saved.homeAssistantEnabled) }
+    var hassPrefix by rememberSaveable(saved.homeAssistantPrefix) { mutableStateOf(saved.homeAssistantPrefix) }
+
     var autostart by rememberSaveable(saved.autostartOnBoot) { mutableStateOf(saved.autostartOnBoot) }
     var reconnect by rememberSaveable(saved.reconnectOnNetworkChange) { mutableStateOf(saved.reconnectOnNetworkChange) }
 
@@ -247,6 +250,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }
         }
 
+        SectionHeader("Integrations")
+        SettingsCard("Home Assistant") {
+            ToggleRow("MQTT discovery", "auto-create the device + entities in HA", hassEnabled) { hassEnabled = it }
+            Field("Discovery prefix", hassPrefix, enabled = hassEnabled) { hassPrefix = it }
+        }
+
         SectionHeader("Behaviour")
         SettingsCard("Service") {
             ToggleRow("Autostart on boot", checked = autostart) { autostart = it }
@@ -293,6 +302,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     alarmRingtoneTitle = alarmRingtoneTitle,
                     cameraDefaultRear = cameraDefaultRear,
                     notifyReadAloud = notifyReadAloud,
+                    homeAssistantEnabled = hassEnabled,
+                    homeAssistantPrefix = hassPrefix.trim().ifBlank { "homeassistant" },
                     autostartOnBoot = autostart,
                     reconnectOnNetworkChange = reconnect,
                 )
