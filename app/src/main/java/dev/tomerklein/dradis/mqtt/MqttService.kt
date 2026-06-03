@@ -11,7 +11,10 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.ProcessLifecycleOwner
 import dev.tomerklein.dradis.BuildConfig
 import dev.tomerklein.dradis.MainActivity
 import dev.tomerklein.dradis.R
@@ -77,6 +80,14 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var ttsSpeaker: TtsSpeaker
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
+    private var ssidRetryJob: Job? = null
+
+    // Re-resolve the SSID when the app is brought to the foreground (e.g. right
+    // after the user grants location permission), so we don't stay on WAN when
+    // we're actually on a home Wi-Fi whose SSID wasn't readable at first.
+    private val appForegroundObserver = LifecycleEventObserver { _, event ->
+        if (event == Lifecycle.Event.ON_START) nudgeSsidResolution()
+    }
 
     // --- CommandSink ---------------------------------------------------------
     override val appContext: Context get() = applicationContext
@@ -131,6 +142,12 @@ class MqttService : LifecycleService(), CommandSink {
 
         networkMonitor = NetworkMonitor(this) { onNetworkChanged() }
         networkMonitor.start()
+        // Cold start: the SSID often isn't readable the instant the network
+        // appears (WifiInfo not populated yet / permission just granted), which
+        // would wrongly pick WAN on home Wi-Fi. Retry a few times, and re-check
+        // whenever the app is foregrounded.
+        ProcessLifecycleOwner.get().lifecycle.addObserver(appForegroundObserver)
+        nudgeSsidResolution()
 
         connScope.launch { settingsRepo.migrate() }
         connScope.launch {
@@ -158,6 +175,8 @@ class MqttService : LifecycleService(), CommandSink {
 
     override fun onDestroy() {
         reselectJob?.cancel()
+        ssidRetryJob?.cancel()
+        ProcessLifecycleOwner.get().lifecycle.removeObserver(appForegroundObserver)
         networkMonitor.stop()
         periodicReporter.stop()
         telemetryReporter.stop()
@@ -169,6 +188,21 @@ class MqttService : LifecycleService(), CommandSink {
         ioScope.cancel()
         ServiceLocator.updateConnection(ConnectionStatus())
         super.onDestroy()
+    }
+
+    /** Re-read the SSID a few times (with backoff) until it resolves or we leave
+     *  Wi-Fi. Each pass fires [onNetworkChanged] → reselect, so the broker flips
+     *  from WAN to LAN as soon as a home SSID becomes readable. */
+    private fun nudgeSsidResolution() {
+        if (!::networkMonitor.isInitialized) return
+        ssidRetryJob?.cancel()
+        ssidRetryJob = connScope.launch {
+            repeat(SSID_RETRY_ATTEMPTS) {
+                networkMonitor.reevaluate()
+                if (!networkMonitor.isWifi() || networkMonitor.currentSsid() != null) return@launch
+                delay(SSID_RETRY_DELAY_MS)
+            }
+        }
     }
 
     // --- Connection management ----------------------------------------------
@@ -357,6 +391,9 @@ class MqttService : LifecycleService(), CommandSink {
         private const val NOTIFICATION_ID = 1001
         private const val DEBOUNCE_MS = 2500L
         private const val MAX_LOGGED_PAYLOAD = 300
+        // SSID can lag the network coming up; retry resolution a handful of times.
+        private const val SSID_RETRY_ATTEMPTS = 5
+        private const val SSID_RETRY_DELAY_MS = 1500L
 
         fun start(context: Context) {
             val intent = Intent(context, MqttService::class.java)
