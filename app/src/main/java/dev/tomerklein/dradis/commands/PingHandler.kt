@@ -21,12 +21,14 @@ class PingHandler : CommandHandler {
         }
         val seconds = payload.takeIf { it.isNotBlank() && it.trim() != "{}" }
             ?.let { runCatching { json.decodeFromString<PingCommand>(it) }.getOrNull()?.seconds }
-            ?: 30
+            ?: sink.settings.alarmDurationSeconds
 
         if (seconds <= 0) {
             PingPlayer.stop { msg -> sink.logInfo(msg) }
         } else {
-            PingPlayer.start(sink.appContext, seconds) { msg -> sink.logInfo(msg) }
+            PingPlayer.start(
+                sink.appContext, seconds, sink.settings.alarmOverrideDnd,
+            ) { msg -> sink.logInfo(msg) }
         }
     }
 }

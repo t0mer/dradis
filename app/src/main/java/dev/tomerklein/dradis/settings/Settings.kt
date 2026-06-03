@@ -40,6 +40,22 @@ data class DradisSettings(
     val sensorsEnabled: Boolean = true,
     val ttsEnabled: Boolean = true,
 
+    // SMS options.
+    val smsNotifyOnSend: Boolean = false,
+
+    // Location options.
+    val locationHighAccuracy: Boolean = true,
+
+    // Alarm / find-phone options.
+    val alarmDurationSeconds: Int = 30,
+    val alarmOverrideDnd: Boolean = true,
+
+    // Camera options — default camera when a takephoto request omits one.
+    val cameraDefaultRear: Boolean = true,
+
+    // Voice / TTS options.
+    val notifyReadAloud: Boolean = false,
+
     val autostartOnBoot: Boolean = true,
     val reconnectOnNetworkChange: Boolean = true,
 )

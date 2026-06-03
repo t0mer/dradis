@@ -107,7 +107,7 @@ class MqttService : LifecycleService(), CommandSink {
                 LocationHandler(),
                 PingHandler(),
                 PhotoHandler(),
-                NotifyHandler(),
+                NotifyHandler(ttsSpeaker),
                 SayHandler(ttsSpeaker),
                 GetStatusHandler(onReport = {
                     telemetryReporter.publishAll()

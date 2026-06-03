@@ -33,10 +33,10 @@ data class PingCommand(
     val seconds: Int = 30,
 )
 
-/** Inbound `takephoto` payload. */
+/** Inbound `takephoto` payload. Empty `camera` → use the configured default. */
 @Serializable
 data class PhotoCommand(
-    val camera: String = "rear",
+    val camera: String = "",
 )
 
 /** Inbound `say` payload — speaks the text via text-to-speech. */

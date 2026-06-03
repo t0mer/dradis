@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -17,15 +18,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.mqtt.Topics
 import dev.tomerklein.dradis.settings.BrokerConfig
@@ -61,11 +64,17 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var updateInterval by rememberSaveable(saved.updateIntervalSeconds) { mutableStateOf(saved.updateIntervalSeconds.toString()) }
 
     var smsEnabled by rememberSaveable(saved.smsEnabled) { mutableStateOf(saved.smsEnabled) }
+    var smsNotifyOnSend by rememberSaveable(saved.smsNotifyOnSend) { mutableStateOf(saved.smsNotifyOnSend) }
     var locationEnabled by rememberSaveable(saved.locationEnabled) { mutableStateOf(saved.locationEnabled) }
+    var locationHighAccuracy by rememberSaveable(saved.locationHighAccuracy) { mutableStateOf(saved.locationHighAccuracy) }
     var pingEnabled by rememberSaveable(saved.pingEnabled) { mutableStateOf(saved.pingEnabled) }
+    var alarmDuration by rememberSaveable(saved.alarmDurationSeconds) { mutableStateOf(saved.alarmDurationSeconds.toString()) }
+    var alarmOverrideDnd by rememberSaveable(saved.alarmOverrideDnd) { mutableStateOf(saved.alarmOverrideDnd) }
     var cameraEnabled by rememberSaveable(saved.cameraEnabled) { mutableStateOf(saved.cameraEnabled) }
+    var cameraDefaultRear by rememberSaveable(saved.cameraDefaultRear) { mutableStateOf(saved.cameraDefaultRear) }
     var telemetryEnabled by rememberSaveable(saved.telemetryEnabled) { mutableStateOf(saved.telemetryEnabled) }
     var notifyEnabled by rememberSaveable(saved.notifyEnabled) { mutableStateOf(saved.notifyEnabled) }
+    var notifyReadAloud by rememberSaveable(saved.notifyReadAloud) { mutableStateOf(saved.notifyReadAloud) }
     var sensorsEnabled by rememberSaveable(saved.sensorsEnabled) { mutableStateOf(saved.sensorsEnabled) }
     var ttsEnabled by rememberSaveable(saved.ttsEnabled) { mutableStateOf(saved.ttsEnabled) }
 
@@ -77,20 +86,21 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        SectionHeader("Basic")
         SettingsCard("Device") {
             Field("Device name", deviceName) { deviceName = it }
             Field("Topic prefix", prefix) { prefix = it }
-            Field("Home Wi-Fi SSIDs (comma-separated)", homeSsids) { homeSsids = it }
         }
 
         SettingsCard("LAN broker (home Wi-Fi)") {
+            Field("Home Wi-Fi SSIDs (comma-separated)", homeSsids) { homeSsids = it }
             Field("Host", lanHost) { lanHost = it }
             Field("Port", lanPort, KeyboardType.Number) { lanPort = it }
             Field("Username", lanUser) { lanUser = it }
             Field("Password", lanPass, KeyboardType.Password, password = true) { lanPass = it }
-            ToggleRow("Use TLS", lanTls) { lanTls = it }
+            ToggleRow("Use TLS", checked = lanTls) { lanTls = it }
         }
 
         SettingsCard("WAN broker (mobile / away)") {
@@ -98,28 +108,76 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Field("Port", wanPort, KeyboardType.Number) { wanPort = it }
             Field("Username", wanUser) { wanUser = it }
             Field("Password", wanPass, KeyboardType.Password, password = true) { wanPass = it }
-            ToggleRow("Use TLS", wanTls) { wanTls = it }
+            ToggleRow("Use TLS", checked = wanTls) { wanTls = it }
         }
 
-        SettingsCard("Periodic updates") {
-            ToggleRow("Publish periodically (telemetry + location)", periodicEnabled) { periodicEnabled = it }
-            Field("Update interval (seconds)", updateInterval, KeyboardType.Number) { updateInterval = it }
+        SettingsCard("Update modes") {
+            ToggleRow(
+                "Publish periodically",
+                "heartbeat: send telemetry + location on the interval",
+                periodicEnabled,
+            ) { periodicEnabled = it }
+            Field("Update interval (seconds)", updateInterval, KeyboardType.Number, enabled = periodicEnabled) {
+                updateInterval = it
+            }
         }
 
-        SettingsCard("Features") {
-            ToggleRow("SMS", smsEnabled) { smsEnabled = it }
-            ToggleRow("Location", locationEnabled) { locationEnabled = it }
-            ToggleRow("Ping / find phone", pingEnabled) { pingEnabled = it }
-            ToggleRow("Camera", cameraEnabled) { cameraEnabled = it }
-            ToggleRow("Telemetry", telemetryEnabled) { telemetryEnabled = it }
-            ToggleRow("Notifications", notifyEnabled) { notifyEnabled = it }
-            ToggleRow("Sensors (steps + motion)", sensorsEnabled) { sensorsEnabled = it }
-            ToggleRow("Text-to-speech (say)", ttsEnabled) { ttsEnabled = it }
+        SectionHeader("Outbound")
+        SettingsCard("Location") {
+            ToggleRow("Enabled", "send GPS location", locationEnabled) { locationEnabled = it }
+            ToggleRow("High accuracy", "uses GPS; more battery", locationHighAccuracy, enabled = locationEnabled) {
+                locationHighAccuracy = it
+            }
         }
 
-        SettingsCard("Behaviour") {
-            ToggleRow("Autostart on boot", autostart) { autostart = it }
-            ToggleRow("Reconnect on network change", reconnect) { reconnect = it }
+        SettingsCard("Telemetry") {
+            ToggleRow("Enabled", "battery, Wi-Fi and device info", telemetryEnabled) { telemetryEnabled = it }
+        }
+
+        SettingsCard("Sensors") {
+            ToggleRow("Enabled", "step counter, step detector, motion", sensorsEnabled) { sensorsEnabled = it }
+        }
+
+        SettingsCard("Camera") {
+            ToggleRow("Enabled", "capture photos on request", cameraEnabled) { cameraEnabled = it }
+            ToggleRow("Default camera: rear", "off = front, when none requested", cameraDefaultRear, enabled = cameraEnabled) {
+                cameraDefaultRear = it
+            }
+        }
+
+        SectionHeader("Inbound")
+        SettingsCard("SMS") {
+            ToggleRow("Enabled", "send SMS on request", smsEnabled) { smsEnabled = it }
+            ToggleRow("Notify when sent", "post a notification after sending", smsNotifyOnSend, enabled = smsEnabled) {
+                smsNotifyOnSend = it
+            }
+        }
+
+        SettingsCard("Notifications") {
+            ToggleRow("Enabled", "show pushed notifications", notifyEnabled) { notifyEnabled = it }
+            ToggleRow("Read aloud", "speak notifications via TTS", notifyReadAloud, enabled = notifyEnabled) {
+                notifyReadAloud = it
+            }
+        }
+
+        SettingsCard("Text-to-speech") {
+            ToggleRow("Enabled", "speak text sent to .../say", ttsEnabled) { ttsEnabled = it }
+        }
+
+        SettingsCard("Alarm (find phone)") {
+            ToggleRow("Enabled", "sound an alarm on request", pingEnabled) { pingEnabled = it }
+            Field("Alarm duration (seconds)", alarmDuration, KeyboardType.Number, enabled = pingEnabled) {
+                alarmDuration = it
+            }
+            ToggleRow("Override silent / DND", "ring through Do-Not-Disturb", alarmOverrideDnd, enabled = pingEnabled) {
+                alarmOverrideDnd = it
+            }
+        }
+
+        SectionHeader("Behaviour")
+        SettingsCard("Service") {
+            ToggleRow("Autostart on boot", checked = autostart) { autostart = it }
+            ToggleRow("Reconnect on network change", checked = reconnect) { reconnect = it }
         }
 
         Button(
@@ -143,7 +201,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     ),
                     homeSsids = homeSsids.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                     periodicUpdatesEnabled = periodicEnabled,
-                    updateIntervalSeconds = updateInterval.toIntOrNull()?.coerceAtLeast(15) ?: 300,
+                    updateIntervalSeconds = updateInterval.toIntOrNull()?.coerceAtLeast(15) ?: 90,
                     smsEnabled = smsEnabled,
                     locationEnabled = locationEnabled,
                     pingEnabled = pingEnabled,
@@ -152,6 +210,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     notifyEnabled = notifyEnabled,
                     sensorsEnabled = sensorsEnabled,
                     ttsEnabled = ttsEnabled,
+                    smsNotifyOnSend = smsNotifyOnSend,
+                    locationHighAccuracy = locationHighAccuracy,
+                    alarmDurationSeconds = alarmDuration.toIntOrNull()?.coerceIn(1, 600) ?: 30,
+                    alarmOverrideDnd = alarmOverrideDnd,
+                    cameraDefaultRear = cameraDefaultRear,
+                    notifyReadAloud = notifyReadAloud,
                     autostartOnBoot = autostart,
                     reconnectOnNetworkChange = reconnect,
                 )
@@ -163,9 +227,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text.uppercase(),
+        fontWeight = FontWeight.Bold,
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+    )
+}
+
+@Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, fontWeight = FontWeight.Bold)
             content()
         }
@@ -178,6 +253,7 @@ private fun Field(
     value: String,
     keyboardType: KeyboardType = KeyboardType.Text,
     password: Boolean = false,
+    enabled: Boolean = true,
     onChange: (String) -> Unit,
 ) {
     OutlinedTextField(
@@ -185,19 +261,36 @@ private fun Field(
         onValueChange = onChange,
         label = { Text(label) },
         singleLine = true,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
     )
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ToggleRow(
+    label: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onChange: (Boolean) -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = onChange)
+        Column(Modifier.weight(1f)) {
+            Text(label)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }

@@ -37,7 +37,7 @@ object LocationPublisher {
     suspend fun currentPayload(sink: CommandSink): LocationPayload? {
         val context = sink.appContext
         if (!hasPermission(context)) return null
-        val location = currentLocation(context) ?: return null
+        val location = currentLocation(context, sink.settings.locationHighAccuracy) ?: return null
         return LocationPayload(
             lat = location.latitude,
             lon = location.longitude,
@@ -60,10 +60,12 @@ object LocationPublisher {
     }
 
     @Suppress("MissingPermission")
-    private suspend fun currentLocation(context: Context): Location? {
+    private suspend fun currentLocation(context: Context, highAccuracy: Boolean): Location? {
         val client = LocationServices.getFusedLocationProviderClient(context)
+        val priority =
+            if (highAccuracy) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
         val request = CurrentLocationRequest.Builder()
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setPriority(priority)
             .setMaxUpdateAgeMillis(10_000)
             .build()
         return runCatching { client.getCurrentLocation(request, null).await() }

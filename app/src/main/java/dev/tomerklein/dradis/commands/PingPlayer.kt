@@ -41,24 +41,26 @@ object PingPlayer {
 
     val isActive: Boolean get() = player != null
 
-    fun start(context: Context, seconds: Int, log: (String) -> Unit) {
+    fun start(context: Context, seconds: Int, overrideDnd: Boolean, log: (String) -> Unit) {
         appContext = context.applicationContext
         stopInternal()
 
-        val nm = context.getSystemService(NotificationManager::class.java)
-        if (nm != null && !nm.isNotificationPolicyAccessGranted) {
-            log("DND/notification-policy access not granted — ping may be silenced by Do-Not-Disturb")
-        }
-
-        val audio = context.getSystemService(AudioManager::class.java)
-        if (audio != null) {
-            savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
-            runCatching {
-                audio.setStreamVolume(
-                    AudioManager.STREAM_ALARM,
-                    audio.getStreamMaxVolume(AudioManager.STREAM_ALARM),
-                    0,
-                )
+        if (overrideDnd) {
+            val nm = context.getSystemService(NotificationManager::class.java)
+            if (nm != null && !nm.isNotificationPolicyAccessGranted) {
+                log("DND/notification-policy access not granted — alarm may be silenced by Do-Not-Disturb")
+            }
+            // Max the alarm stream so it cuts through silent/DND.
+            val audio = context.getSystemService(AudioManager::class.java)
+            if (audio != null) {
+                savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+                runCatching {
+                    audio.setStreamVolume(
+                        AudioManager.STREAM_ALARM,
+                        audio.getStreamMaxVolume(AudioManager.STREAM_ALARM),
+                        0,
+                    )
+                }
             }
         }
 

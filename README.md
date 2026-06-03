@@ -28,8 +28,11 @@ every permission DRADIS needs.
 ![Status](assets/screenshots/status.png)
 
 ### Settings
-Device name, topic prefix, home SSIDs, both brokers (host/port/auth/TLS), the
-update interval, per-feature toggles and behaviour. Credentials are masked.
+Grouped into Basic, Update modes, Outbound and Inbound sections: device name,
+topic prefix, home SSIDs, both brokers (host/port/auth/TLS), the update
+interval, and each feature with its own options (SMS notify-on-send, location
+high-accuracy, camera default, alarm duration + DND override, notification
+read-aloud, TTS). Credentials are masked.
 
 ![Settings](assets/screenshots/settings.png)
 

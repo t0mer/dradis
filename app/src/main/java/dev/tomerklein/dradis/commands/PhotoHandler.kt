@@ -34,7 +34,12 @@ class PhotoHandler : CommandHandler {
         val cmd = payload.takeIf { it.isNotBlank() }
             ?.let { runCatching { json.decodeFromString<PhotoCommand>(it) }.getOrNull() }
             ?: PhotoCommand()
-        val rear = !cmd.camera.equals("front", ignoreCase = true)
+        val camera = cmd.camera.takeIf { it.isNotBlank() }
+        val rear = if (camera == null) {
+            sink.settings.cameraDefaultRear
+        } else {
+            !camera.equals("front", ignoreCase = true)
+        }
 
         sink.logInfo("Capturing ${if (rear) "rear" else "front"} photo…")
         val jpeg = PhotoCapturer.capture(sink.appContext, rear)

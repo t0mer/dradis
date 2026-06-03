@@ -48,6 +48,9 @@ class SmsHandler : CommandHandler {
             sms.sendMultipartTextMessage(phone, null, parts, null, null)
             sink.logInfo("SMS sent to $phone (${parts.size} part(s))")
             publishResult(sink, phone, ok = true)
+            if (sink.settings.smsNotifyOnSend) {
+                Notifier.post(sink.appContext, "SMS sent", "to $phone: ${text.take(80)}")
+            }
         } catch (t: Throwable) {
             publishResult(sink, phone, ok = false, error = t.message ?: "send failed")
         }
