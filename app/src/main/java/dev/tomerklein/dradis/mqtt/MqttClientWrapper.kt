@@ -20,7 +20,7 @@ private const val TAG = "dradis.mqtt"
  */
 class MqttClientWrapper(
     private val clientId: String,
-    private val onMessage: (topic: String, payload: ByteArray) -> Unit,
+    private val onMessage: (topic: String, payload: ByteArray, retained: Boolean) -> Unit,
     private val onConnected: () -> Unit,
     private val onStateChange: (ConnState) -> Unit,
 ) {
@@ -67,7 +67,7 @@ class MqttClientWrapper(
         // Register the global inbound callback before connecting.
         c.publishes(MqttGlobalPublishFilter.ALL) { publish ->
             runCatching {
-                onMessage(publish.topic.toString(), publish.payloadAsBytes)
+                onMessage(publish.topic.toString(), publish.payloadAsBytes, publish.isRetain)
             }.onFailure { Log.e(TAG, "inbound dispatch failed", it) }
         }
 

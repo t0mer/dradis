@@ -219,7 +219,7 @@ class MqttService : LifecycleService(), CommandSink {
         val clientId = "dradis-${current.deviceName}-${BuildConfig.DRADIS_VERSION}"
         val wrapper = MqttClientWrapper(
             clientId = clientId,
-            onMessage = { topic, bytes -> onInbound(topic, bytes) },
+            onMessage = { topic, bytes, retained -> onInbound(topic, bytes, retained) },
             onConnected = { onConnected() },
             onStateChange = { state -> updateStatus(state, selection, state.name) },
         )
@@ -241,7 +241,14 @@ class MqttService : LifecycleService(), CommandSink {
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }
 
-    private fun onInbound(topic: String, bytes: ByteArray) {
+    private fun onInbound(topic: String, bytes: ByteArray, retained: Boolean) {
+        // Commands are events, not state. Ignore retained messages delivered from
+        // the broker's store on (re)subscribe so a leftover/retained command never
+        // re-fires (e.g. a retained-clear or an accidentally retained publish).
+        if (retained) {
+            mqttLog.inbound(redactPii(topic), "(retained command ignored)", now())
+            return
+        }
         val text = bytes.toString(StandardCharsets.UTF_8)
         // The handler gets the full payload; only the in-app log is redacted +
         // length-capped so PII (phone numbers, SMS text) isn't retained verbatim.
