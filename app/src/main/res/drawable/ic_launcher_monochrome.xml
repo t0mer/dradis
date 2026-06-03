@@ -4,24 +4,35 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Flat radar silhouette; the system applies the themed tint. -->
-    <path android:pathData="M54,54 m-30,0 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0"
-        android:fillColor="#00000000"
-        android:strokeColor="#000000" android:strokeWidth="2.4" />
-    <path android:pathData="M54,54 m-19,0 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0"
-        android:fillColor="#00000000"
-        android:strokeColor="#000000" android:strokeWidth="2.4" />
+    <!-- Flat dragonfly silhouette; the system applies the themed tint. -->
 
-    <!-- Sweep wedge -->
-    <path android:pathData="M54,54 L54,24 A30,30 0 0,1 79.98,39 Z"
-        android:fillColor="#000000" android:fillAlpha="0.55" />
-    <!-- Leading edge -->
-    <path android:pathData="M54,54 L54,24"
-        android:strokeColor="#000000" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <!-- Wings -->
+    <group android:pivotX="54" android:pivotY="50" android:rotation="-152">
+        <path android:pathData="M67,50 m-13,0 a13,4.5 0 1,0 26,0 a13,4.5 0 1,0 -26,0"
+            android:fillColor="#000000" />
+    </group>
+    <group android:pivotX="54" android:pivotY="50" android:rotation="-28">
+        <path android:pathData="M67,50 m-13,0 a13,4.5 0 1,0 26,0 a13,4.5 0 1,0 -26,0"
+            android:fillColor="#000000" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="154">
+        <path android:pathData="M67.5,54 m-13.5,0 a13.5,5 0 1,0 27,0 a13.5,5 0 1,0 -27,0"
+            android:fillColor="#000000" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="26">
+        <path android:pathData="M67.5,54 m-13.5,0 a13.5,5 0 1,0 27,0 a13.5,5 0 1,0 -27,0"
+            android:fillColor="#000000" />
+    </group>
 
-    <!-- Blip + centre -->
-    <path android:pathData="M41.4,72 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0"
+    <!-- Abdomen -->
+    <path android:pathData="M51.8,54 Q54,51.5 56.2,54 L54.7,82 Q54,86 53.3,82 L51.8,54 Z"
         android:fillColor="#000000" />
-    <path android:pathData="M54,54 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+    <!-- Thorax -->
+    <path android:pathData="M54,49 m-3.6,0 a3.6,4.6 0 1,0 7.2,0 a3.6,4.6 0 1,0 -7.2,0"
+        android:fillColor="#000000" />
+    <!-- Head / eyes -->
+    <path android:pathData="M52,40 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#000000" />
+    <path android:pathData="M56,40 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
         android:fillColor="#000000" />
 </vector>
