@@ -31,7 +31,7 @@ class NotifyHandler(private val tts: TtsSpeaker) : CommandHandler {
         }
 
         val id = cmd.id ?: Notifier.nextId()
-        val posted = Notifier.post(sink.appContext, cmd.title.ifBlank { "DRADIS" }, cmd.text, id)
+        val posted = Notifier.post(sink.appContext, cmd.title.ifBlank { "Dradis" }, cmd.text, id)
         if (posted) {
             sink.logInfo("Notification posted (id=$id): ${cmd.title}")
         } else {

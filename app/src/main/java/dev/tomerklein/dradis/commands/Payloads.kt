@@ -49,7 +49,7 @@ data class SayCommand(
 /** Inbound `notify` payload — pushes a notification to the device's shade. */
 @Serializable
 data class NotifyCommand(
-    val title: String = "DRADIS",
+    val title: String = "Dradis",
     val text: String = "",
     /** Optional stable id so a later notify with the same id replaces it. */
     val id: Int? = null,
