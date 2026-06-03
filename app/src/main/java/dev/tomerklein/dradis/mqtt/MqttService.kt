@@ -227,7 +227,11 @@ class MqttService : LifecycleService(), CommandSink {
 
         // Stable per-install id (UUID-based, persisted). Fallback only if a connect
         // races ahead of first-run persistence — normally never blank here.
-        val clientId = current.clientId.ifBlank { "dradis-${java.util.UUID.randomUUID()}" }
+        val baseId = current.clientId.ifBlank { "dradis-${java.util.UUID.randomUUID()}" }
+        // Distinct client id per broker (…-lan / …-wan) so the LAN and WAN
+        // sessions never share an id (e.g. when both brokers are bridged or are
+        // the same broker reached two ways).
+        val clientId = "$baseId-${sel.kind.name.lowercase()}"
         logInfo("MQTT client id: $clientId")
         val wrapper = MqttClientWrapper(
             clientId = clientId,
