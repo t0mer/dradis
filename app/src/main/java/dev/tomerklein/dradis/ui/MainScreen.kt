@@ -27,7 +27,7 @@ fun MainScreen() {
     var tab by remember { mutableStateOf(Tab.STATUS) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("DRADIS") }) },
+        topBar = { TopAppBar(title = { Text("Dradis") }) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
