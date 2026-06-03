@@ -131,6 +131,7 @@ class MqttService : LifecycleService(), CommandSink {
         networkMonitor = NetworkMonitor(this) { onNetworkChanged() }
         networkMonitor.start()
 
+        connScope.launch { settingsRepo.migrate() }
         connScope.launch {
             settingsRepo.settings.collect { s ->
                 current = s
