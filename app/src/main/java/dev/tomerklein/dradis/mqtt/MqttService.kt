@@ -135,6 +135,13 @@ class MqttService : LifecycleService(), CommandSink {
         connScope.launch { settingsRepo.migrate() }
         connScope.launch {
             settingsRepo.settings.collect { s ->
+                // First run: mint a stable per-install client id, then wait for the
+                // re-emission with it set rather than connecting with a blank id
+                // (duplicate ids across devices make the broker drop sessions).
+                if (s.clientId.isBlank()) {
+                    settingsRepo.ensureClientId()
+                    return@collect
+                }
                 current = s
                 currentTopics = Topics(s.topicPrefix, s.deviceName)
                 periodicReporter.restart()
@@ -218,7 +225,10 @@ class MqttService : LifecycleService(), CommandSink {
         client?.disconnect()
         logInfo("Selecting ${sel.kind} broker ${sel.config.host}:${sel.config.port} (ssid=${sel.ssid ?: "none"})")
 
-        val clientId = "dradis-${current.deviceName}-${BuildConfig.DRADIS_VERSION}"
+        // Stable per-install id (UUID-based, persisted). Fallback only if a connect
+        // races ahead of first-run persistence — normally never blank here.
+        val clientId = current.clientId.ifBlank { "dradis-${java.util.UUID.randomUUID()}" }
+        logInfo("MQTT client id: $clientId")
         val wrapper = MqttClientWrapper(
             clientId = clientId,
             onMessage = { topic, bytes, retained -> onInbound(topic, bytes, retained) },

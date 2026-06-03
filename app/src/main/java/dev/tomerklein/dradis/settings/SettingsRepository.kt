@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "dradis_settings")
 
@@ -38,6 +39,17 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun set(settings: DradisSettings) = update { settings }
+
+    /** Ensure a stable per-install MQTT client id exists, generating a UUID-based
+     *  one on first run. Returns the (existing or newly created) client id. */
+    suspend fun ensureClientId(): String {
+        var id = ""
+        update { s ->
+            id = s.clientId.ifBlank { "dradis-${UUID.randomUUID()}" }
+            s.copy(clientId = id)
+        }
+        return id
+    }
 
     /** Re-encrypt a legacy plaintext blob in place (run once at startup). */
     suspend fun migrate() {
