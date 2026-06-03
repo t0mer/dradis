@@ -6,6 +6,8 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client
+import com.hivemq.client.mqtt.mqtt3.exceptions.Mqtt3ConnAckException
+import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAckReturnCode
 import dev.tomerklein.dradis.settings.BrokerConfig
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
@@ -63,7 +65,16 @@ class MqttClientWrapper(
                 // source=SERVER => broker closed us (e.g. another client with the
                 // same id took over); source=CLIENT => local/network error.
                 Log.i(TAG, "disconnected id=$clientId source=${ctx.source} cause=${ctx.cause}")
-                onStateChange(ConnState.DISCONNECTED)
+                if (isAuthFailure(ctx.cause)) {
+                    // Broker rejected our credentials (or temporarily locked us
+                    // out). Don't hammer it every 1-20s — that keeps fail2ban-style
+                    // bans alive and is pointless against an auth rejection. Cancel
+                    // the fast auto-reconnect; the service schedules a slow retry.
+                    runCatching { ctx.reconnector.reconnect(false) }
+                    onStateChange(ConnState.UNAUTHORIZED)
+                } else {
+                    onStateChange(ConnState.DISCONNECTED)
+                }
             }
             .buildAsync()
         client = c
@@ -137,5 +148,13 @@ class MqttClientWrapper(
             runCatching { c.disconnect() }
         }
         client = null
+    }
+
+    /** True when the broker rejected CONNECT for an auth reason (bad credentials
+     *  or NOT_AUTHORIZED / temporary lockout), as opposed to a network error. */
+    private fun isAuthFailure(cause: Throwable?): Boolean {
+        val ack = (cause as? Mqtt3ConnAckException)?.mqttMessage ?: return false
+        return ack.returnCode == Mqtt3ConnAckReturnCode.NOT_AUTHORIZED ||
+            ack.returnCode == Mqtt3ConnAckReturnCode.BAD_USER_NAME_OR_PASSWORD
     }
 }

@@ -82,6 +82,7 @@ class MqttService : LifecycleService(), CommandSink {
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
+    private var authRetryJob: Job? = null
 
     // Bumped on every (re)connect. A superseded client's async connect/disconnect
     // listeners carry the generation they were created with; if it no longer
@@ -185,6 +186,7 @@ class MqttService : LifecycleService(), CommandSink {
     override fun onDestroy() {
         reselectJob?.cancel()
         ssidRetryJob?.cancel()
+        authRetryJob?.cancel()
         ProcessLifecycleOwner.get().lifecycle.removeObserver(appForegroundObserver)
         networkMonitor.stop()
         periodicReporter.stop()
@@ -264,7 +266,19 @@ class MqttService : LifecycleService(), CommandSink {
         }
     }
 
+    /** After an auth rejection the fast reconnect loop is cancelled (see
+     *  [MqttClientWrapper]); retry slowly so a temporary broker lockout can clear
+     *  without hammering — and without spinning on genuinely-bad credentials. */
+    private fun scheduleAuthRetry() {
+        authRetryJob?.cancel()
+        authRetryJob = connScope.launch {
+            delay(AUTH_RETRY_MS)
+            selection?.let { reconnect(it) }
+        }
+    }
+
     private fun reconnect(sel: BrokerSelector.Selection) {
+        authRetryJob?.cancel()
         client?.disconnect()
         // New generation: the just-disconnected client's late listeners (and any
         // earlier one's) will no longer match and are ignored.
@@ -283,7 +297,12 @@ class MqttService : LifecycleService(), CommandSink {
             clientId = clientId,
             onMessage = { topic, bytes, retained -> onInbound(topic, bytes, retained) },
             onConnected = { if (gen == connGen) onConnected() },
-            onStateChange = { state -> if (gen == connGen) updateStatus(state, selection, state.name) },
+            onStateChange = { state ->
+                if (gen == connGen) {
+                    updateStatus(state, selection, state.name)
+                    if (state == ConnState.UNAUTHORIZED) scheduleAuthRetry()
+                }
+            },
         )
         client = wrapper
         updateStatus(ConnState.CONNECTING, sel, "Connecting to ${sel.config.host}")
@@ -347,6 +366,7 @@ class MqttService : LifecycleService(), CommandSink {
             ConnState.CONNECTED -> "Connected ($brokerLabel · ${status.host})"
             ConnState.CONNECTING -> "Connecting ($brokerLabel)…"
             ConnState.DISCONNECTED -> detail.ifBlank { "Disconnected" }
+            ConnState.UNAUTHORIZED -> "Not authorized ($brokerLabel) — check broker credentials"
         }
         updateNotification(text)
     }
@@ -410,6 +430,9 @@ class MqttService : LifecycleService(), CommandSink {
         // SSID can lag the network coming up; retry resolution a handful of times.
         private const val SSID_RETRY_ATTEMPTS = 5
         private const val SSID_RETRY_DELAY_MS = 1500L
+        // Slow retry after the broker rejects auth, so a temporary lockout can
+        // clear without the app hammering it (which keeps fail2ban-style bans alive).
+        private const val AUTH_RETRY_MS = 60_000L
 
         fun start(context: Context) {
             val intent = Intent(context, MqttService::class.java)
