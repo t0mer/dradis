@@ -81,6 +81,11 @@ class NetworkMonitor(
         runCatching { cm.unregisterNetworkCallback(callback) }
     }
 
+    /** Force a re-read of the active network and its SSID, firing [onChange].
+     *  Useful at startup or after location permission is granted / the app is
+     *  foregrounded, when the SSID may not have been readable on the first pass. */
+    fun reevaluate() = refresh()
+
     /** Current SSID, or null if not on Wi-Fi / unreadable (→ WAN). */
     fun currentSsid(): String? = ssid
 
