@@ -5,47 +5,80 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Crosshair -->
-    <path android:pathData="M54,23 L54,85"
-        android:strokeColor="#36F1A0" android:strokeAlpha="0.16" android:strokeWidth="1" />
-    <path android:pathData="M23,54 L85,54"
-        android:strokeColor="#36F1A0" android:strokeAlpha="0.16" android:strokeWidth="1" />
+    <!-- ============ WINGS (4, translucent cyan, rooted at the thorax) ======= -->
 
-    <!-- Concentric radar rings -->
-    <path android:pathData="M54,54 m-31,0 a31,31 0 1,0 62,0 a31,31 0 1,0 -62,0"
-        android:fillColor="#00000000"
-        android:strokeColor="#36F1A0" android:strokeAlpha="0.32" android:strokeWidth="1.6" />
-    <path android:pathData="M54,54 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4" android:strokeAlpha="0.5" android:strokeWidth="1.6" />
-    <path android:pathData="M54,54 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4" android:strokeAlpha="0.72" android:strokeWidth="1.6" />
+    <!-- Upper-left forewing -->
+    <group android:pivotX="54" android:pivotY="50" android:rotation="-152">
+        <path android:pathData="M67,50 m-13,0 a13,4.5 0 1,0 26,0 a13,4.5 0 1,0 -26,0"
+            android:fillColor="#42B8F5E6"
+            android:strokeColor="#CC9DFCE8" android:strokeWidth="1" />
+        <path android:pathData="M55,50 L79,50"
+            android:strokeColor="#888EEAD4" android:strokeWidth="0.7" />
+    </group>
 
-    <!-- Sweep wedge with fading gradient -->
-    <path android:pathData="M54,54 L54,23 A31,31 0 0,1 80.85,38.5 Z">
+    <!-- Upper-right forewing -->
+    <group android:pivotX="54" android:pivotY="50" android:rotation="-28">
+        <path android:pathData="M67,50 m-13,0 a13,4.5 0 1,0 26,0 a13,4.5 0 1,0 -26,0"
+            android:fillColor="#42B8F5E6"
+            android:strokeColor="#CC9DFCE8" android:strokeWidth="1" />
+        <path android:pathData="M55,50 L79,50"
+            android:strokeColor="#888EEAD4" android:strokeWidth="0.7" />
+    </group>
+
+    <!-- Lower-left hindwing -->
+    <group android:pivotX="54" android:pivotY="54" android:rotation="154">
+        <path android:pathData="M67.5,54 m-13.5,0 a13.5,5 0 1,0 27,0 a13.5,5 0 1,0 -27,0"
+            android:fillColor="#3AA6F0DE"
+            android:strokeColor="#BB9DFCE8" android:strokeWidth="1" />
+        <path android:pathData="M55,54 L80,54"
+            android:strokeColor="#888EEAD4" android:strokeWidth="0.7" />
+    </group>
+
+    <!-- Lower-right hindwing -->
+    <group android:pivotX="54" android:pivotY="54" android:rotation="26">
+        <path android:pathData="M67.5,54 m-13.5,0 a13.5,5 0 1,0 27,0 a13.5,5 0 1,0 -27,0"
+            android:fillColor="#3AA6F0DE"
+            android:strokeColor="#BB9DFCE8" android:strokeWidth="1" />
+        <path android:pathData="M55,54 L80,54"
+            android:strokeColor="#888EEAD4" android:strokeWidth="0.7" />
+    </group>
+
+    <!-- ============ BODY ==================================================== -->
+
+    <!-- Abdomen: tapering spindle with a vertical cyan gradient -->
+    <path android:pathData="M51.8,54 Q54,51.5 56.2,54 L54.7,82 Q54,86 53.3,82 L51.8,54 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="54" android:startY="54"
-                android:endX="74" android:endY="32">
-                <item android:offset="0" android:color="#A636F1A0" />
-                <item android:offset="1" android:color="#0036F1A0" />
+                android:startX="54" android:startY="52"
+                android:endX="54" android:endY="86">
+                <item android:offset="0" android:color="#FF9DFCE8" />
+                <item android:offset="1" android:color="#FF22D3A6" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Bright leading edge of the sweep -->
-    <path android:pathData="M54,54 L54,23"
-        android:strokeColor="#9DFCE8" android:strokeWidth="1.8" android:strokeLineCap="round" />
+    <!-- Abdomen segment lines -->
+    <path android:pathData="M52.4,60 L55.6,60" android:strokeColor="#800B2533" android:strokeWidth="0.9" />
+    <path android:pathData="M52.6,66 L55.4,66" android:strokeColor="#800B2533" android:strokeWidth="0.9" />
+    <path android:pathData="M52.8,72 L55.2,72" android:strokeColor="#800B2533" android:strokeWidth="0.9" />
+    <path android:pathData="M53.1,78 L54.9,78" android:strokeColor="#800B2533" android:strokeWidth="0.9" />
 
-    <!-- Contact blip: coral halo + dot -->
-    <path android:pathData="M41.4,72 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"
-        android:fillColor="#FF8A5C" android:fillAlpha="0.30" />
-    <path android:pathData="M41.4,72 m-2.6,0 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0"
+    <!-- Tail tip accent (coral) -->
+    <path android:pathData="M54,85 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0"
         android:fillColor="#FFAE86" />
 
-    <!-- Centre node -->
-    <path android:pathData="M54,54 m-2.4,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0"
-        android:fillColor="#9DFCE8" />
+    <!-- Thorax -->
+    <path android:pathData="M54,49 m-3.6,0 a3.6,4.6 0 1,0 7.2,0 a3.6,4.6 0 1,0 -7.2,0"
+        android:fillColor="#FFB8F5E6" />
+
+    <!-- Head + two large compound eyes -->
+    <path android:pathData="M52,40 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#FF5EEAD4" />
+    <path android:pathData="M56,40 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#FF5EEAD4" />
+    <path android:pathData="M52,39 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"
+        android:fillColor="#FF9DFCE8" />
+    <path android:pathData="M56,39 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"
+        android:fillColor="#FF9DFCE8" />
 </vector>
