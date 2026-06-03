@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
 import dev.tomerklein.dradis.commands.BatteryInfo
 import dev.tomerklein.dradis.commands.CommandSink
 import dev.tomerklein.dradis.commands.DeviceInfo
@@ -41,7 +42,10 @@ class TelemetryReporter(private val sink: CommandSink) {
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
-        sink.appContext.registerReceiver(r, filter)
+        // Not exported — only the system sends these (protected) broadcasts.
+        ContextCompat.registerReceiver(
+            sink.appContext, r, filter, ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     fun stop() {
