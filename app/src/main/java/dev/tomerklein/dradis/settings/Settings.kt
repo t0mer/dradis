@@ -11,6 +11,9 @@ data class BrokerConfig(
     val username: String = "",
     val password: String = "",
     val tls: Boolean = false,
+    /** PEM-encoded CA certificate(s) to trust the broker's TLS cert. Blank →
+     *  use the system trust store (public CAs). Needed for self-signed/private CAs. */
+    val caCert: String = "",
 ) {
     val isConfigured: Boolean get() = host.isNotBlank() && port in 1..65535
 }

@@ -29,7 +29,7 @@ every permission DRADIS needs.
 
 ### Settings
 Grouped into Basic, Update modes, Outbound and Inbound sections: device name,
-topic prefix, home SSIDs, both brokers (host/port/auth/TLS), the update
+topic prefix, home SSIDs, both brokers (host/port/auth/TLS + CA certificate), the update
 interval, and each feature with its own options (SMS notify-on-send, location
 high-accuracy, camera default, alarm duration + DND override, notification
 read-aloud, TTS). Credentials are masked.
@@ -160,7 +160,9 @@ battery saver.
 ## Security
 
 - Prefer **TLS (port 8883)** for the WAN broker — without it, SMS text, location,
-  and credentials travel in cleartext.
+  and credentials travel in cleartext. Toggling **Use TLS** in Settings swaps the
+  port (1883↔8883); for a self-signed / private-CA broker, upload its **CA
+  certificate** (PEM) under the broker so the app can validate the connection.
 - Anyone able to publish to `dradis/<device>/sendsms` can send SMS and read the
   phone's location. Use **broker authentication + per-topic ACLs** and a
   non-guessable device name.

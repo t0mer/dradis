@@ -1,6 +1,7 @@
 package dev.tomerklein.dradis.mqtt
 
 import android.util.Log
+import com.hivemq.client.mqtt.MqttClientSslConfig
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
@@ -35,7 +36,18 @@ class MqttClientWrapper(
             .serverHost(config.host)
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
-            .apply { if (config.tls) sslWithDefaultConfig() }
+            .apply {
+                if (config.tls) {
+                    val tmf = TlsCerts.trustManagerFactory(config.caCert)
+                    if (tmf != null) {
+                        // Trust the user-supplied CA (self-signed / private CA).
+                        sslConfig(MqttClientSslConfig.builder().trustManagerFactory(tmf).build())
+                    } else {
+                        // No/!invalid CA supplied → system trust store (public CAs).
+                        sslWithDefaultConfig()
+                    }
+                }
+            }
             .addConnectedListener {
                 onStateChange(ConnState.CONNECTED)
                 onConnected()

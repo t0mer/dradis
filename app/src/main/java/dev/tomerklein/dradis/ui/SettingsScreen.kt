@@ -1,5 +1,9 @@
 package dev.tomerklein.dradis.ui
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,9 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -39,6 +46,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val repo = ServiceLocator.settings
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val saved by repo.settings.collectAsState(initial = DradisSettings())
 
     // Seed editable fields from the persisted settings; re-seed when they load.
@@ -53,12 +61,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var lanUser by rememberSaveable(saved.lanBroker.username) { mutableStateOf(saved.lanBroker.username) }
     var lanPass by rememberSaveable(saved.lanBroker.password) { mutableStateOf(saved.lanBroker.password) }
     var lanTls by rememberSaveable(saved.lanBroker.tls) { mutableStateOf(saved.lanBroker.tls) }
+    var lanCaCert by rememberSaveable(saved.lanBroker.caCert) { mutableStateOf(saved.lanBroker.caCert) }
+    val lanCaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) lanCaCert = readTextSafe(context, uri)
+    }
 
     var wanHost by rememberSaveable(saved.wanBroker.host) { mutableStateOf(saved.wanBroker.host) }
     var wanPort by rememberSaveable(saved.wanBroker.port) { mutableStateOf(saved.wanBroker.port.toString()) }
     var wanUser by rememberSaveable(saved.wanBroker.username) { mutableStateOf(saved.wanBroker.username) }
     var wanPass by rememberSaveable(saved.wanBroker.password) { mutableStateOf(saved.wanBroker.password) }
     var wanTls by rememberSaveable(saved.wanBroker.tls) { mutableStateOf(saved.wanBroker.tls) }
+    var wanCaCert by rememberSaveable(saved.wanBroker.caCert) { mutableStateOf(saved.wanBroker.caCert) }
+    val wanCaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) wanCaCert = readTextSafe(context, uri)
+    }
 
     var periodicEnabled by rememberSaveable(saved.periodicUpdatesEnabled) { mutableStateOf(saved.periodicUpdatesEnabled) }
     var updateInterval by rememberSaveable(saved.updateIntervalSeconds) { mutableStateOf(saved.updateIntervalSeconds.toString()) }
@@ -104,6 +120,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 lanTls = it
                 lanPort = syncTlsPort(lanPort, it)
             }
+            if (lanTls) {
+                CertRow(
+                    loaded = lanCaCert.isNotBlank(),
+                    onPick = { lanCaPicker.launch(CERT_MIME_TYPES) },
+                    onClear = { lanCaCert = "" },
+                )
+            }
         }
 
         SettingsCard("WAN broker (mobile / away)") {
@@ -114,6 +137,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             ToggleRow("Use TLS", checked = wanTls) {
                 wanTls = it
                 wanPort = syncTlsPort(wanPort, it)
+            }
+            if (wanTls) {
+                CertRow(
+                    loaded = wanCaCert.isNotBlank(),
+                    onPick = { wanCaPicker.launch(CERT_MIME_TYPES) },
+                    onClear = { wanCaCert = "" },
+                )
             }
         }
 
@@ -197,6 +227,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         username = lanUser.trim(),
                         password = lanPass,
                         tls = lanTls,
+                        caCert = lanCaCert.trim(),
                     ),
                     wanBroker = BrokerConfig(
                         host = wanHost.trim(),
@@ -204,6 +235,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         username = wanUser.trim(),
                         password = wanPass,
                         tls = wanTls,
+                        caCert = wanCaCert.trim(),
                     ),
                     homeSsids = homeSsids.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                     periodicUpdatesEnabled = periodicEnabled,
@@ -229,6 +261,37 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save settings") }
+    }
+}
+
+private val CERT_MIME_TYPES = arrayOf(
+    "application/x-pem-file", "application/x-x509-ca-cert", "application/pkix-cert",
+    "application/octet-stream", "text/plain", "*/*",
+)
+
+/** Read a picked document's text (PEM certificate), or "" on failure. */
+private fun readTextSafe(context: Context, uri: Uri): String =
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+    }.getOrDefault("")
+
+@Composable
+private fun CertRow(loaded: Boolean, onPick: () -> Unit, onClear: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("CA certificate")
+            Text(
+                if (loaded) "Loaded" else "none — uses system CAs",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (loaded) TextButton(onClick = onClear) { Text("Clear") }
+        OutlinedButton(onClick = onPick) { Text(if (loaded) "Replace" else "Choose") }
     }
 }
 
