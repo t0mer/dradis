@@ -28,8 +28,10 @@ class NetworkMonitor(
     private val cm = appContext.getSystemService(ConnectivityManager::class.java)
     private val wifi = appContext.getSystemService(WifiManager::class.java)
 
-    // Last-known SSID name. Seeded from persistence (see [seedSsid]) so a restart
-    // isn't blind on home Wi-Fi before the first live read resolves.
+    // Last-known SSID *name*. Sticky across transient Wi-Fi drops; its use is
+    // gated by [onWifi] in currentSsid() so we don't report it while genuinely
+    // off Wi-Fi. Seeded from persistence (see [seedSsid]) so a restart isn't
+    // blind on home Wi-Fi.
     @Volatile
     private var ssid: String? = null
 
@@ -73,8 +75,12 @@ class NetworkMonitor(
             }
             Log.i(TAG, "net update: wifi=true read=$read ssid=$ssid")
         } else {
-            ssid = null
-            Log.i(TAG, "net update: wifi=false ssid=null")
+            // Keep the last-known SSID name sticky across a *transient* Wi-Fi
+            // drop (handover, brief loss); currentSsid() gates it by onWifi, so
+            // we report null while off Wi-Fi but instantly re-pick the home
+            // broker when the SAME network returns — instead of flapping
+            // LAN -> WAN -> LAN and tearing down the MQTT link each time.
+            Log.i(TAG, "net update: wifi=false (retain last ssid=$ssid)")
         }
     }
 
@@ -107,8 +113,10 @@ class NetworkMonitor(
      *  foregrounded, when the SSID may not have been readable on the first pass. */
     fun reevaluate() = refresh()
 
-    /** Current SSID, or null if not on Wi-Fi / unreadable (→ WAN). */
-    fun currentSsid(): String? = ssid
+    /** Current SSID, or null if not on Wi-Fi / unreadable (→ WAN). The last-known
+     *  name is retained across transient drops but only surfaced while on Wi-Fi,
+     *  so a brief loss doesn't flip the broker selection. */
+    fun currentSsid(): String? = if (onWifi) ssid else null
 
     /** True when the active network is Wi-Fi (independent of SSID readability). */
     fun isWifi(): Boolean = onWifi
