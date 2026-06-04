@@ -92,6 +92,13 @@ class MqttService : LifecycleService(), CommandSink {
     @Volatile
     private var connGen = 0
 
+    // Gates the first broker selection until the persisted last-known SSID has
+    // been seeded into the NetworkMonitor, so a cold start picks the correct
+    // broker straight away instead of briefly connecting to WAN on a not-yet-
+    // resolved (null) SSID and then flipping to LAN.
+    @Volatile
+    private var seeded = false
+
     // Re-resolve the SSID when the app is brought to the foreground (e.g. right
     // after the user grants location permission), so we don't stay on WAN when
     // we're actually on a home Wi-Fi whose SSID wasn't readable at first.
@@ -150,8 +157,27 @@ class MqttService : LifecycleService(), CommandSink {
             ),
         )
 
-        networkMonitor = NetworkMonitor(this) { onNetworkChanged() }
+        networkMonitor = NetworkMonitor(
+            context = this,
+            // Persist each freshly-read SSID so the next process start (the
+            // service is restarted aggressively by the OS) re-picks the home
+            // broker immediately instead of starting blind (null → WAN).
+            onSsidResolved = { ssid -> connScope.launch { settingsRepo.setLastKnownSsid(ssid) } },
+            onChange = { onNetworkChanged() },
+        )
         networkMonitor.start()
+        // Seed the last-known SSID from a previous run so we don't flap to WAN on
+        // a cold start before the (often slow) first SSID read resolves. The first
+        // broker selection is gated on [seeded] (see applySelection) so it goes
+        // straight to the correct broker instead of briefly touching WAN.
+        connScope.launch {
+            try {
+                networkMonitor.seedSsid(settingsRepo.lastKnownSsid())
+            } finally {
+                seeded = true
+                scheduleReselect(debounceMs = 0)
+            }
+        }
         // Cold start: the SSID often isn't readable the instant the network
         // appears (WifiInfo not populated yet / permission just granted), which
         // would wrongly pick WAN on home Wi-Fi. Retry a few times, and re-check
@@ -233,6 +259,10 @@ class MqttService : LifecycleService(), CommandSink {
     }
 
     private fun applySelection() {
+        // Hold off the very first selection until the seed has been applied (see
+        // onCreate); the seed coroutine re-triggers this once ready. Network and
+        // settings callbacks that arrive earlier are no-ops here.
+        if (!seeded) return
         val ssid = networkMonitor.currentSsid()
         val sel = BrokerSelector.select(current, ssid)
 
