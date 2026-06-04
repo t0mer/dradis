@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -26,10 +28,16 @@ class SettingsRepository(private val context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val key = stringPreferencesKey("settings_json")
+    // Last successfully-read Wi-Fi SSID. Kept as a separate plaintext key (not a
+    // secret — it's broadcast over the air) and OUTSIDE the encrypted settings
+    // blob so writing it doesn't churn the whole settings object on every read.
+    private val lastSsidKey = stringPreferencesKey("last_known_ssid")
 
-    val settings: Flow<DradisSettings> = context.dataStore.data.map { prefs ->
-        prefs[key]?.let { decode(it) } ?: DradisSettings()
-    }
+    val settings: Flow<DradisSettings> = context.dataStore.data
+        .map { prefs -> prefs[key]?.let { decode(it) } ?: DradisSettings() }
+        // Writing unrelated keys (e.g. last_known_ssid) re-emits DataStore; dedupe
+        // so collectors don't needlessly reselect the broker / restart reporters.
+        .distinctUntilChanged()
 
     suspend fun update(transform: (DradisSettings) -> DradisSettings) {
         context.dataStore.edit { prefs ->
@@ -49,6 +57,22 @@ class SettingsRepository(private val context: Context) {
             s.copy(clientId = id)
         }
         return id
+    }
+
+    /** Last Wi-Fi SSID we successfully read, or "" if none yet. Used to seed
+     *  [dev.tomerklein.dradis.net.NetworkMonitor] at startup so a service restart
+     *  re-picks the home (LAN) broker immediately instead of starting blind
+     *  (null SSID → WAN) until the SSID resolves again. */
+    suspend fun lastKnownSsid(): String =
+        context.dataStore.data.map { it[lastSsidKey] ?: "" }.first()
+
+    /** Persist the last successfully-read Wi-Fi SSID. No-op when unchanged so we
+     *  don't rewrite DataStore on every (identical) network callback. */
+    suspend fun setLastKnownSsid(ssid: String) {
+        context.dataStore.edit { prefs ->
+            if (prefs[lastSsidKey] == ssid) return@edit
+            prefs[lastSsidKey] = ssid
+        }
     }
 
     /** Re-encrypt a legacy plaintext blob in place (run once at startup). */
