@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "dradis_settings")
 
@@ -48,13 +47,22 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun set(settings: DradisSettings) = update { settings }
 
-    /** Ensure a stable per-install MQTT client id exists, generating a UUID-based
-     *  one on first run. Returns the (existing or newly created) client id. */
+    /** Ensure a stable, **per-device** MQTT client id is persisted. Generates one
+     *  (UUID-based) at first setup and saves it locally. If the device fingerprint
+     *  recorded with the id no longer matches the running device — i.e. the saved
+     *  settings were copied to another device (clone/restore) — the id is
+     *  regenerated so the two devices don't share it and evict each other in a
+     *  reconnect loop. Returns the resulting client id. */
     suspend fun ensureClientId(): String {
+        val fingerprint = ClientId.deviceFingerprint(context)
         var id = ""
         update { s ->
-            id = s.clientId.ifBlank { "dradis-${UUID.randomUUID()}" }
-            s.copy(clientId = id)
+            // Regenerate when we have no id yet, or when we can fingerprint the
+            // device and it differs from the one the id was generated on (covers a
+            // cloned id, and a legacy id saved before fingerprints existed).
+            val cloned = fingerprint != null && s.clientIdDevice != fingerprint
+            id = if (s.clientId.isBlank() || cloned) ClientId.generate() else s.clientId
+            s.copy(clientId = id, clientIdDevice = fingerprint ?: s.clientIdDevice)
         }
         return id
     }

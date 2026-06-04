@@ -30,6 +30,7 @@ import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.commands.TtsSpeaker
 import dev.tomerklein.dradis.net.NetworkMonitor
+import dev.tomerklein.dradis.settings.ClientId
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.LocationPublisher
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
@@ -188,10 +189,15 @@ class MqttService : LifecycleService(), CommandSink {
         connScope.launch { settingsRepo.migrate() }
         connScope.launch {
             settingsRepo.settings.collect { s ->
-                // First run: mint a stable per-install client id, then wait for the
-                // re-emission with it set rather than connecting with a blank id
-                // (duplicate ids across devices make the broker drop sessions).
-                if (s.clientId.isBlank()) {
+                // Ensure a stable, per-device client id before connecting. Generate
+                // one at first setup, AND regenerate a transfer-cloned id (settings
+                // copied onto another device) — otherwise the two installs share a
+                // client id and evict each other in an endless reconnect loop (often
+                // surfacing as NOT_AUTHORIZED). Wait for the re-emission with the
+                // corrected id rather than connecting now.
+                val fingerprint = ClientId.deviceFingerprint(this@MqttService)
+                val clonedId = fingerprint != null && s.clientIdDevice != fingerprint
+                if (s.clientId.isBlank() || clonedId) {
                     settingsRepo.ensureClientId()
                     return@collect
                 }
@@ -315,9 +321,10 @@ class MqttService : LifecycleService(), CommandSink {
         val gen = ++connGen
         logInfo("Selecting ${sel.kind} broker ${sel.config.host}:${sel.config.port} (ssid=${sel.ssid ?: "none"})")
 
-        // Stable per-install id (UUID-based, persisted). Fallback only if a connect
-        // races ahead of first-run persistence — normally never blank here.
-        val baseId = current.clientId.ifBlank { "dradis-${java.util.UUID.randomUUID()}" }
+        // Stable per-device id (see ClientId), generated/persisted by the settings
+        // collector above. Fallback only if a connect races ahead of first-run
+        // persistence — normally never blank here.
+        val baseId = current.clientId.ifBlank { ClientId.generate() }
         // Distinct client id per broker (…-lan / …-wan) so the LAN and WAN
         // sessions never share an id (e.g. when both brokers are bridged or are
         // the same broker reached two ways).
