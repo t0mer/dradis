@@ -78,4 +78,10 @@ data class DradisSettings(
 
     val autostartOnBoot: Boolean = true,
     val reconnectOnNetworkChange: Boolean = true,
+
+    /** Hold a Wi-Fi lock + partial wake lock while connected so the MQTT link
+     *  survives device sleep (screen off on battery powers down the Wi-Fi radio /
+     *  suspends the CPU, dropping the connection until the screen wakes). Required
+     *  for the phone to stay remotely reachable while asleep; costs some battery. */
+    val keepAliveWhileLocked: Boolean = true,
 )
