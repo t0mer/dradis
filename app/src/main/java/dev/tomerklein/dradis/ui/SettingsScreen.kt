@@ -116,6 +116,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     var autostart by rememberSaveable(saved.autostartOnBoot) { mutableStateOf(saved.autostartOnBoot) }
     var reconnect by rememberSaveable(saved.reconnectOnNetworkChange) { mutableStateOf(saved.reconnectOnNetworkChange) }
+    var keepAlive by rememberSaveable(saved.keepAliveWhileLocked) { mutableStateOf(saved.keepAliveWhileLocked) }
 
     Column(
         modifier = modifier
@@ -260,6 +261,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         SettingsCard("Service") {
             ToggleRow("Autostart on boot", checked = autostart) { autostart = it }
             ToggleRow("Reconnect on network change", checked = reconnect) { reconnect = it }
+            ToggleRow("Keep connected while asleep", checked = keepAlive) { keepAlive = it }
         }
 
         Button(
@@ -309,6 +311,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     homeAssistantPrefix = hassPrefix.trim().ifBlank { "homeassistant" },
                     autostartOnBoot = autostart,
                     reconnectOnNetworkChange = reconnect,
+                    keepAliveWhileLocked = keepAlive,
                 )
                 scope.launch { repo.set(next) }
             },

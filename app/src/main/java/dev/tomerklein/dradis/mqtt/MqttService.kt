@@ -57,6 +57,8 @@ class MqttService : LifecycleService(), CommandSink {
 
     private val settingsRepo by lazy { ServiceLocator.settings }
     private val mqttLog by lazy { ServiceLocator.mqttLog }
+    // Keeps the Wi-Fi radio + CPU awake so the link survives device sleep.
+    private val connectionLocks by lazy { ConnectionLocks(this) }
 
     @Volatile
     private var current: DradisSettings = DradisSettings()
@@ -134,6 +136,10 @@ class MqttService : LifecycleService(), CommandSink {
     override fun onCreate() {
         super.onCreate()
         startInForeground("Starting…")
+        // Hold the radio/CPU awake so the link survives device sleep. Acquired
+        // here (default on) so it doesn't depend on the settings collector's path;
+        // the collector releases it if the user turns the setting off.
+        connectionLocks.acquire()
 
         telemetryReporter = TelemetryReporter(this)
         telemetryReporter.start()
@@ -203,6 +209,9 @@ class MqttService : LifecycleService(), CommandSink {
                 }
                 current = s
                 currentTopics = Topics(s.topicPrefix, s.deviceName)
+                // Keep the radio/CPU awake so the link survives sleep (or release
+                // the locks if the user turned it off to save battery).
+                if (s.keepAliveWhileLocked) connectionLocks.acquire() else connectionLocks.release()
                 periodicReporter.restart()
                 hassDiscovery.publish()
                 scheduleReselect(debounceMs = 0)
@@ -227,6 +236,7 @@ class MqttService : LifecycleService(), CommandSink {
         ttsSpeaker.shutdown()
         client?.disconnect()
         client = null
+        connectionLocks.release()
         connScope.cancel()
         ioScope.cancel()
         ServiceLocator.updateConnection(ConnectionStatus())
