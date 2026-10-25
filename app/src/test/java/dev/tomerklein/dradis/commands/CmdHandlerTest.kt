@@ -82,6 +82,17 @@ class CmdHandlerTest {
         assertTrue(byTopic.getValue(topics.logOutbound).contains("out/topic"))
     }
 
+    @Test fun repeatedSendLogsDoesNotEmbedPreviousDumps() = runTest {
+        log.outbound("out/topic", "b", 0L)
+        val h = handler()
+        h.handle(topics.cmd("send_logs"), "{}", sink)
+        // The service logs every published payload as an outbound entry.
+        sink.published.forEach { (topic, body) -> log.outbound(topic, body, 1L) }
+        sink.published.clear()
+        h.handle(topics.cmd("send_logs"), "{}", sink)
+        assertEquals(1, sink.published.toMap().getValue(topics.logOutbound).lines().size)
+    }
+
     @Test fun sendHtmlLogsEmitsHtml() = runTest {
         log.inbound("in/<x>", "a", 0L)
         handler().handle(topics.cmd("send_html_logs"), "{}", sink)

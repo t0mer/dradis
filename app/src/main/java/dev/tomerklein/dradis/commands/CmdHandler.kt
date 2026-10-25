@@ -54,8 +54,10 @@ class CmdHandler(
     }
 
     private fun sendLogs(sink: CommandSink, html: Boolean) {
-        val all = mqttLog.entries.value
         val t = sink.topics
+        // Our own dumps are logged as outbound entries; leave them out or each
+        // dump would embed the previous ones and grow on every call.
+        val all = mqttLog.entries.value.filter { it.topic != t.logInbound && it.topic != t.logOutbound }
         for ((dir, topic) in listOf(Direction.IN to t.logInbound, Direction.OUT to t.logOutbound)) {
             val entries = all.filter { it.direction == dir }
             val body = if (html) LogFormatter.toHtml(entries, topic) else LogFormatter.toText(entries)
