@@ -22,6 +22,16 @@ class Topics(private val prefix: String, private val device: String) {
     val notify: String get() = "$base/notify"
     val say: String get() = "$base/say"
 
+    /** Control verbs arrive as `<base>/cmd/<verb>`; one wildcard covers them all. */
+    val cmdWildcard: String get() = "$base/cmd/+"
+    fun cmd(verb: String): String = "$base/cmd/$verb"
+
+    /** The verb of a `<base>/cmd/<verb>` topic, or null if [topic] is not one. */
+    fun cmdVerb(topic: String): String? {
+        val p = "$base/cmd/"
+        return topic.removePrefix(p).takeIf { topic.startsWith(p) && it.isNotEmpty() && '/' !in it }
+    }
+
     /** All inbound command topics, for explicit subscription (preferred over wildcard). */
     fun inboundTopics(): List<String> = listOf(
         sendSms,
@@ -33,6 +43,7 @@ class Topics(private val prefix: String, private val device: String) {
         getStatus,
         notify,
         say,
+        cmdWildcard,
     )
 
     // --- Outbound (app publishes) -------------------------------------------
@@ -46,6 +57,8 @@ class Topics(private val prefix: String, private val device: String) {
     val photo: String get() = "$base/photo"
     val smsResult: String get() = "$base/sendsms/result"
     val log: String get() = "$base/log"
+    val logInbound: String get() = "$base/log_inbound"
+    val logOutbound: String get() = "$base/log_outbound"
 
     companion object {
         const val DEFAULT_PREFIX = "dradis"
