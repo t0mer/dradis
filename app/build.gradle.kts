@@ -106,6 +106,10 @@ android {
         // directly and has no Fragments, so the Fragment-version check is moot.
         disable += "InvalidFragmentVersionForActivityResult"
     }
+    testOptions {
+        // Handlers log through android.util.Log; return defaults on the JVM.
+        unitTests.isReturnDefaultValues = true
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -143,6 +147,7 @@ dependencies {
     implementation(libs.play.services.location)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

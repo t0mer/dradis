@@ -136,6 +136,26 @@ class HassDiscovery(private val sink: CommandSink) {
                 put("payload_press", "PRESS")
                 put("icon", "mdi:refresh")
             },
-        )
+        ) + CMD_BUTTONS.map { (verb, name, icon) ->
+            config("button", "cmd_$verb") {
+                put("name", name)
+                put("command_topic", t.cmd(verb))
+                // cmd verbs ignore blank payloads, so the button sends `{}`.
+                put("payload_press", "{}")
+                put("icon", icon)
+            }
+        }
     }
 }
+
+/** `cmd/<verb>` verbs exposed to HA as buttons: (verb, display name, mdi icon). */
+private val CMD_BUTTONS = listOf(
+    Triple("restart", "Restart", "mdi:restart"),
+    Triple("reconnect", "Reconnect", "mdi:lan-connect"),
+    Triple("take_picture", "Take picture", "mdi:camera-iris"),
+    Triple("send_heartbeat", "Send heartbeat", "mdi:heart-pulse"),
+    Triple("set_bookmark", "Set bookmark", "mdi:bookmark-plus"),
+    Triple("send_logs", "Send logs", "mdi:text-box-outline"),
+    Triple("send_html_logs", "Send HTML logs", "mdi:file-document-outline"),
+    Triple("stop_alarm", "Stop alarm", "mdi:bell-off"),
+)

@@ -19,6 +19,7 @@ import dev.tomerklein.dradis.BuildConfig
 import dev.tomerklein.dradis.MainActivity
 import dev.tomerklein.dradis.R
 import dev.tomerklein.dradis.ServiceLocator
+import dev.tomerklein.dradis.commands.CmdHandler
 import dev.tomerklein.dradis.commands.CommandRouter
 import dev.tomerklein.dradis.commands.CommandSink
 import dev.tomerklein.dradis.commands.GetStatusHandler
@@ -148,6 +149,10 @@ class MqttService : LifecycleService(), CommandSink {
         ttsSpeaker = TtsSpeaker(this)
         periodicReporter = PeriodicReporter(this, ioScope, telemetryReporter, sensorReporter)
 
+        val publishReport = {
+            telemetryReporter.publishAll()
+            if (current.sensorsEnabled) sensorReporter.publish()
+        }
         router = CommandRouter(
             sink = this,
             handlers = listOf(
@@ -157,10 +162,21 @@ class MqttService : LifecycleService(), CommandSink {
                 PhotoHandler(),
                 NotifyHandler(ttsSpeaker),
                 SayHandler(ttsSpeaker),
-                GetStatusHandler(onReport = {
-                    telemetryReporter.publishAll()
-                    if (current.sensorsEnabled) sensorReporter.publish()
-                }),
+                GetStatusHandler(onReport = publishReport),
+                CmdHandler(
+                    mqttLog = mqttLog,
+                    onHeartbeat = publishReport,
+                    onReconnect = { connScope.launch { selection?.let { reconnect(it) } } },
+                    // Rebuild the client and re-announce everything: the same
+                    // work a settings change triggers.
+                    onRestart = {
+                        connScope.launch {
+                            hassDiscovery.publish()
+                            periodicReporter.restart()
+                            selection?.let { reconnect(it) }
+                        }
+                    },
+                ),
             ),
         )
 
