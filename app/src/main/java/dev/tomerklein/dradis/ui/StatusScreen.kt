@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -21,12 +19,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.mqtt.ConnState
 import dev.tomerklein.dradis.mqtt.MqttService
 import dev.tomerklein.dradis.settings.DradisSettings
+import dev.tomerklein.dradis.ui.components.ConsoleCard
+import dev.tomerklein.dradis.ui.components.KeyValueRow
+import dev.tomerklein.dradis.ui.components.SectionHeader
+import dev.tomerklein.dradis.ui.components.StateChip
+import dev.tomerklein.dradis.ui.components.chipStateFor
 
 @Composable
 fun StatusScreen(modifier: Modifier = Modifier) {
@@ -59,86 +61,67 @@ fun StatusScreen(modifier: Modifier = Modifier) {
             Permissions.foregroundLocationGranted(context) &&
             !Permissions.backgroundLocationGranted(context)
         if (bgLocationMissing) {
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                ),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Background location needed", fontWeight = FontWeight.Bold)
-                    Text(
-                        "Location is only set to “While in use”. In the background " +
-                            "the app can’t read your Wi-Fi network name, so it keeps " +
-                            "switching between the LAN and WAN brokers and the connection " +
-                            "drops repeatedly. Set location to “Allow all the time” " +
-                            "to keep it stable on home Wi-Fi.",
-                    )
-                    Button(
-                        onClick = {
-                            bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Allow all the time") }
-                }
+            ConsoleCard(error = true) {
+                Text("Background location needed", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Location is only set to “While in use”. In the background " +
+                        "the app can’t read your Wi-Fi network name, so it keeps " +
+                        "switching between the LAN and WAN brokers and the connection " +
+                        "drops repeatedly. Set location to “Allow all the time” " +
+                        "to keep it stable on home Wi-Fi.",
+                )
+                Button(
+                    onClick = {
+                        bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Allow all the time") }
             }
         }
 
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Connection", fontWeight = FontWeight.Bold)
-                Row("State", connection.state.name)
-                Row("Broker", connection.broker.name)
-                Row("Wi-Fi SSID", connection.ssid ?: "—")
-                Row("Host", connection.host ?: "—")
-                if (connection.detail.isNotBlank()) Row("Detail", connection.detail)
-            }
+        ConsoleCard(hero = true) {
+            SectionHeader("Connection")
+            StateChip(connection.state.name, chipStateFor(connection.state))
+            KeyValueRow("Broker", connection.broker.name)
+            KeyValueRow("Wi-Fi SSID", connection.ssid ?: "—")
+            KeyValueRow("Host", connection.host ?: "—")
+            if (connection.detail.isNotBlank()) KeyValueRow("Detail", connection.detail)
         }
 
         Button(onClick = { MqttService.start(context) }, modifier = Modifier.fillMaxWidth()) {
             Text(if (connection.state == ConnState.CONNECTED) "Restart service" else "Start service")
         }
 
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Permissions", fontWeight = FontWeight.Bold)
+        ConsoleCard {
+            SectionHeader("Permissions")
 
+            OutlinedButton(
+                onClick = { runtimeLauncher.launch(Permissions.runtimePermissions()) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Grant SMS / Location / Camera / Notifications") }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 OutlinedButton(
-                    onClick = { runtimeLauncher.launch(Permissions.runtimePermissions()) },
+                    onClick = {
+                        if (Permissions.foregroundLocationGranted(context)) {
+                            bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                        }
+                    },
+                    enabled = Permissions.foregroundLocationGranted(context) &&
+                        !Permissions.backgroundLocationGranted(context),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Grant SMS / Location / Camera / Notifications") }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    OutlinedButton(
-                        onClick = {
-                            if (Permissions.foregroundLocationGranted(context)) {
-                                bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                            }
-                        },
-                        enabled = Permissions.foregroundLocationGranted(context) &&
-                            !Permissions.backgroundLocationGranted(context),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Allow background location (\"Allow all the time\")") }
-                }
-
-                OutlinedButton(
-                    onClick = { context.startActivity(Permissions.notificationPolicyIntent()) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Do-Not-Disturb access (for find-my-phone)") }
-
-                OutlinedButton(
-                    onClick = { context.startActivity(Permissions.batteryOptimizationIntent(context)) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Ignore battery optimisation") }
+                ) { Text("Allow background location (\"Allow all the time\")") }
             }
-        }
-    }
-}
 
-@Composable
-private fun Row(label: String, value: String) {
-    androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth()) {
-        Text("$label: ", fontWeight = FontWeight.SemiBold)
-        Text(value)
+            OutlinedButton(
+                onClick = { context.startActivity(Permissions.notificationPolicyIntent()) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Do-Not-Disturb access (for find-my-phone)") }
+
+            OutlinedButton(
+                onClick = { context.startActivity(Permissions.batteryOptimizationIntent(context)) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Ignore battery optimisation") }
+        }
     }
 }
