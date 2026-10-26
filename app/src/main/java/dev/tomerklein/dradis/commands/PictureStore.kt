@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 
 /**
  * Saves pictures received on custom topics to app-private storage and exposes
@@ -27,7 +28,7 @@ class PictureStore(context: Context) {
         val h = bounds.outHeight
         if (w <= 0 || h <= 0 || w > MAX_SIDE || h > MAX_SIDE || w.toLong() * h > MAX_PIXELS) return false
         files.add(image.bytes, image.extension)
-        _changes.value++
+        _changes.update { it + 1 }
         true
     }.getOrDefault(false)
 
@@ -35,7 +36,7 @@ class PictureStore(context: Context) {
 
     fun fileFor(name: String): File? = files.fileFor(name)
 
-    fun delete(name: String): Boolean = files.delete(name).also { if (it) _changes.value++ }
+    fun delete(name: String): Boolean = files.delete(name).also { if (it) _changes.update { it + 1 } }
 
     private companion object {
         const val MAX_SIDE = 8000

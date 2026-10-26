@@ -18,7 +18,10 @@ class GalleryDir(private val dir: File, private val maxFiles: Int = MAX_FILES) {
         require(extension == "jpg" || extension == "png") { "bad extension" }
         dir.mkdirs()
         val file = File(dir, "${UUID.randomUUID()}.$extension")
-        file.writeBytes(bytes)
+        // Write under a name list() ignores, then rename, so readers never see a partial file.
+        val tmp = File(dir, "${file.name}.tmp")
+        tmp.writeBytes(bytes)
+        check(tmp.renameTo(file)) { "rename failed" }
         trim()
         return GalleryItem(file.name, file.lastModified(), file.length())
     }

@@ -58,6 +58,14 @@ class GalleryDirTest {
         assertEquals(1, g.list().size)
     }
 
+    @Test fun partialWritesAreNeverListed() {
+        val g = GalleryDir(dir)
+        val a = g.add(byteArrayOf(1), "jpg")
+        File(dir, "${a.name}.tmp").writeBytes(byteArrayOf(1))
+        assertEquals(listOf(a.name), g.list().map { it.name })
+        assertEquals(null, g.fileFor("${a.name}.tmp"))
+    }
+
     @Test(expected = IllegalArgumentException::class) fun rejectsUnknownExtension() {
         GalleryDir(dir).add(byteArrayOf(1), "html")
     }

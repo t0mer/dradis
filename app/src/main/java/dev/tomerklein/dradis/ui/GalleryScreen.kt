@@ -1,5 +1,6 @@
 package dev.tomerklein.dradis.ui
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -27,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.commands.GalleryItem
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Pictures received on PICTURE custom topics: thumbnails, full view, share, delete. */
@@ -46,10 +49,14 @@ import kotlinx.coroutines.withContext
 fun GalleryScreen(modifier: Modifier = Modifier) {
     val store = ServiceLocator.pictures
     val version by store.changes.collectAsState()
-    var items by remember { mutableStateOf<List<GalleryItem>>(emptyList()) }
+    var loaded by remember { mutableStateOf<List<GalleryItem>?>(null) }
+    val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf<GalleryItem?>(null) }
 
-    LaunchedEffect(version) { items = withContext(Dispatchers.IO) { store.list() } }
+    LaunchedEffect(version) { loaded = withContext(Dispatchers.IO) { store.list() } }
+    val items = loaded ?: return
+    // The open picture may have been trimmed away by a newer arrival.
+    if (opened != null && items.none { it.name == opened?.name }) opened = null
 
     if (items.isEmpty()) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -71,8 +78,8 @@ fun GalleryScreen(modifier: Modifier = Modifier) {
 
     opened?.let { item ->
         ViewerDialog(item, onClose = { opened = null }, onDelete = {
-            store.delete(item.name)
             opened = null
+            scope.launch(Dispatchers.IO) { store.delete(item.name) }
         })
     }
 }
@@ -122,6 +129,7 @@ private fun share(context: Context, item: GalleryItem) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = if (item.name.endsWith(".png")) "image/png" else "image/jpeg"
         putExtra(Intent.EXTRA_STREAM, uri)
+        clipData = ClipData.newRawUri("", uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(send, "Share picture").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -142,8 +150,13 @@ private fun decode(name: String, maxPx: Int): Bitmap? {
     BitmapFactory.decodeFile(file.path, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1
-    while (bounds.outWidth / (sample * 2) >= maxPx && bounds.outHeight / (sample * 2) >= maxPx) sample *= 2
-    val bmp = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+    // Largest side ends up <= maxPx, so memory stays bounded whatever the source size.
+    while (maxOf(bounds.outWidth, bounds.outHeight) / sample > maxPx) sample *= 2
+    val bmp = try {
+        BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+    } catch (_: OutOfMemoryError) {
+        null
+    } ?: return null
     Cache.put(name, maxPx, bmp)
     return bmp
 }
