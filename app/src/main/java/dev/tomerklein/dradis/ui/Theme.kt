@@ -15,24 +15,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private fun PaletteColors.darkScheme(): ColorScheme = darkColorScheme(
+    inversePrimary = ConsolePalette.light.primary,
     primary = primary, onPrimary = onPrimary, primaryContainer = primaryContainer, onPrimaryContainer = onPrimaryContainer,
     secondary = primary, onSecondary = onPrimary, secondaryContainer = primaryContainer, onSecondaryContainer = onPrimaryContainer,
     background = background, onBackground = text, surface = surface, onSurface = text,
-    surfaceVariant = surface, onSurfaceVariant = textSecondary, surfaceTint = primary,
-    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surface,
-    surfaceContainerHighest = surface, surfaceContainerLowest = background,
-    outline = outline, outlineVariant = outline,
+    surfaceVariant = surfaceHigh, onSurfaceVariant = textSecondary, surfaceTint = primary,
+    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surfaceHigh,
+    surfaceContainerHighest = surfaceHigh, surfaceContainerLowest = background,
+    outline = outline, outlineVariant = outlineVariant,
+    tertiary = primary, onTertiary = onPrimary, tertiaryContainer = primaryContainer, onTertiaryContainer = onPrimaryContainer,
+    inverseSurface = text, inverseOnSurface = background,
     error = error, onError = onError, errorContainer = errorContainer, onErrorContainer = onErrorContainer,
 )
 
 private fun PaletteColors.lightScheme(): ColorScheme = lightColorScheme(
+    inversePrimary = ConsolePalette.dark.primary,
     primary = primary, onPrimary = onPrimary, primaryContainer = primaryContainer, onPrimaryContainer = onPrimaryContainer,
     secondary = primary, onSecondary = onPrimary, secondaryContainer = primaryContainer, onSecondaryContainer = onPrimaryContainer,
     background = background, onBackground = text, surface = surface, onSurface = text,
-    surfaceVariant = surface, onSurfaceVariant = textSecondary, surfaceTint = primary,
-    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surface,
-    surfaceContainerHighest = surface, surfaceContainerLowest = background,
-    outline = outline, outlineVariant = outline,
+    surfaceVariant = surfaceHigh, onSurfaceVariant = textSecondary, surfaceTint = primary,
+    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surfaceHigh,
+    surfaceContainerHighest = surfaceHigh, surfaceContainerLowest = background,
+    outline = outline, outlineVariant = outlineVariant,
+    tertiary = primary, onTertiary = onPrimary, tertiaryContainer = primaryContainer, onTertiaryContainer = onPrimaryContainer,
+    inverseSurface = text, inverseOnSurface = background,
     error = error, onError = onError, errorContainer = errorContainer, onErrorContainer = onErrorContainer,
 )
 

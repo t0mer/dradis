@@ -26,6 +26,9 @@ class PaletteContrastTest {
                 "onPrimary/primary" to (p.onPrimary to p.primary),
                 "primary/surface" to (p.primary to p.surface),
                 "onPrimaryContainer/primaryContainer" to (p.onPrimaryContainer to p.primaryContainer),
+                "text/surfaceHigh" to (p.text to p.surfaceHigh),
+                "textSecondary/surfaceHigh" to (p.textSecondary to p.surfaceHigh),
+                "textSecondary/primaryContainer" to (p.textSecondary to p.primaryContainer),
                 "error/surface" to (p.error to p.surface),
                 "onErrorContainer/errorContainer" to (p.onErrorContainer to p.errorContainer),
                 "onSuccessContainer/successContainer" to (p.onSuccessContainer to p.successContainer),
@@ -47,6 +50,10 @@ class PaletteContrastTest {
                 "outline/surface" to (p.outline to p.surface),
                 "outline/background" to (p.outline to p.background),
                 "primary/surface" to (p.primary to p.surface),
+                "primary/primaryContainer (hero border, chip dot)" to (p.primary to p.primaryContainer),
+                "success/successContainer (chip dot)" to (p.success to p.successContainer),
+                "warning/warningContainer (chip dot)" to (p.warning to p.warningContainer),
+                "error/errorContainer (border, chip dot)" to (p.error to p.errorContainer),
             )
             for ((label, pair) in pairs) {
                 val r = contrast(pair.first, pair.second)

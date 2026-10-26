@@ -7,6 +7,10 @@ data class PaletteColors(
     val background: Color,
     val surface: Color,
     val outline: Color,
+    /** Decorative dividers; exempt from the 3:1 non-text rule. */
+    val outlineVariant: Color,
+    /** Raised surface: dialogs, menus, switch tracks. */
+    val surfaceHigh: Color,
     val primary: Color,
     val onPrimary: Color,
     val primaryContainer: Color,
@@ -33,6 +37,8 @@ object ConsolePalette {
         background = Color(0xFF0E1512),
         surface = Color(0xFF16211C),
         outline = Color(0xFF55796A),
+        outlineVariant = Color(0xFF2A3D33),
+        surfaceHigh = Color(0xFF1F2E27),
         primary = Color(0xFF3DDC97),
         onPrimary = Color(0xFF00331F),
         primaryContainer = Color(0xFF103A2C),
@@ -57,6 +63,8 @@ object ConsolePalette {
         background = Color(0xFFF3F8F5),
         surface = Color(0xFFFFFFFF),
         outline = Color(0xFF6F8E80),
+        outlineVariant = Color(0xFFD3E2DA),
+        surfaceHigh = Color(0xFFE9F1ED),
         primary = Color(0xFF0F7A52),
         onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFDDF3E8),

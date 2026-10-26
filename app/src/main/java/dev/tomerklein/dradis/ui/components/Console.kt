@@ -65,22 +65,22 @@ fun StateChip(label: String, state: ChipState, modifier: Modifier = Modifier) {
     }
 }
 
-/** Outlined, flat card; [hero] uses the primary container for the key card on a screen. */
+/** Outlined, flat card; [hero] uses the primary container for the key card on a screen, [error] the error container. */
 @Composable
 fun ConsoleCard(
     modifier: Modifier = Modifier,
     hero: Boolean = false,
+    error: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val container = when { error -> scheme.errorContainer; hero -> scheme.primaryContainer; else -> scheme.surface }
+    val onContainer = when { error -> scheme.onErrorContainer; hero -> scheme.onPrimaryContainer; else -> scheme.onSurface }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = if (hero) scheme.primaryContainer else scheme.surface,
-            contentColor = if (hero) scheme.onPrimaryContainer else scheme.onSurface,
-        ),
-        border = BorderStroke(1.dp, scheme.outline),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = onContainer),
+        border = BorderStroke(1.dp, if (error) scheme.error else scheme.outline),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)

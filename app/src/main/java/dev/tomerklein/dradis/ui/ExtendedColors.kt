@@ -27,7 +27,7 @@ internal fun PaletteColors.toExtended() = ExtendedColors(
     logIn = logIn, logOut = logOut,
 )
 
-val LocalExtendedColors = staticCompositionLocalOf { ConsolePalette.dark.toExtended() }
+val LocalExtendedColors = staticCompositionLocalOf<ExtendedColors> { error("ExtendedColors used outside DradisTheme") }
 
 val MaterialTheme.extended: ExtendedColors
     @Composable @ReadOnlyComposable get() = LocalExtendedColors.current
