@@ -5,10 +5,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -27,9 +29,19 @@ private enum class Tab(val label: String) { STATUS("Status"), SETTINGS("Settings
 @Composable
 fun MainScreen() {
     var tab by remember { mutableStateOf(Tab.STATUS) }
+    var discovering by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Dradis") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Dradis") },
+                actions = {
+                    IconButton(onClick = { discovering = true }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Discover topics")
+                    }
+                },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -66,6 +78,10 @@ fun MainScreen() {
         },
     ) { inner ->
         val modifier = Modifier.padding(inner)
+        if (discovering) {
+            DiscoverScreen(onClose = { discovering = false }, modifier = modifier)
+            return@Scaffold
+        }
         when (tab) {
             Tab.STATUS -> StatusScreen(modifier)
             Tab.SETTINGS -> SettingsScreen(modifier)
