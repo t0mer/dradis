@@ -37,6 +37,7 @@ import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.ClientId
 import dev.tomerklein.dradis.settings.CustomTopic
 import dev.tomerklein.dradis.settings.OutboundTopic
+import dev.tomerklein.dradis.settings.OutboundTopicValidator
 import dev.tomerklein.dradis.telemetry.AndroidDeviceValues
 import dev.tomerklein.dradis.telemetry.CustomOutboundPublisher
 import dev.tomerklein.dradis.settings.CustomTopicType
@@ -52,6 +53,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Semaphore
@@ -104,7 +106,7 @@ class MqttService : LifecycleService(), CommandSink {
     private val dupGuard = DuplicateGuard()
     private lateinit var outboundPublisher: CustomOutboundPublisher
     @Volatile
-    private var customOutbound: List<OutboundTopic> = emptyList()
+    private var customOutboundRaw: List<OutboundTopic> = emptyList()
     // Topics we published on recently (HA discovery etc.), so discovery never lists our own echoes.
     private val ownPublished: MutableSet<String> = java.util.Collections.newSetFromMap(
         java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Boolean>() {
@@ -181,7 +183,7 @@ class MqttService : LifecycleService(), CommandSink {
         ttsSpeaker = TtsSpeaker(this)
         outboundPublisher = CustomOutboundPublisher(this, AndroidDeviceValues(telemetryReporter, this))
         periodicReporter = PeriodicReporter(this, ioScope, telemetryReporter, sensorReporter) {
-            outboundPublisher.publishAll(customOutbound)
+            if (client?.isConnected == true) outboundPublisher.publishAll(safeOutbound())
         }
 
         val publishReport = {
@@ -258,9 +260,9 @@ class MqttService : LifecycleService(), CommandSink {
         connScope.launch { runDiscoverySessions() }
         connScope.launch {
             ServiceLocator.customTopics.outbound.collect { list ->
-                customOutbound = list
+                customOutboundRaw = list
                 // Publish right away when the list changes on a live link; on connect it is sent by onConnected.
-                if (client?.isConnected == true) ioScope.launch { outboundPublisher.publishAll(list) }
+                if (client?.isConnected == true) ioScope.launch { outboundPublisher.publishAll(safeOutbound()) }
                 syncCustomSubscriptions()
             }
         }
@@ -272,6 +274,10 @@ class MqttService : LifecycleService(), CommandSink {
             }
         }
         connScope.launch {
+            // Load the stored topic lists before the first connect, so the echo guards are in force
+            // when subscriptions are built (the collectors above may not have emitted yet).
+            customTopics = ServiceLocator.customTopics.topics.first()
+            customOutboundRaw = ServiceLocator.customTopics.outbound.first()
             settingsRepo.settings.collect { s ->
                 // Ensure a stable, per-device client id before connecting. Generate
                 // one at first setup, AND regenerate a transfer-cloned id (settings
@@ -450,7 +456,7 @@ class MqttService : LifecycleService(), CommandSink {
         if (current.telemetryEnabled) telemetryReporter.publishAll()
         if (current.sensorsEnabled) sensorReporter.publish()
         if (current.locationEnabled) ioScope.launch { LocationPublisher.publishCurrent(this@MqttService) }
-        ioScope.launch { outboundPublisher.publishAll(customOutbound) }
+        ioScope.launch { outboundPublisher.publishAll(safeOutbound()) }
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }
@@ -517,9 +523,17 @@ class MqttService : LifecycleService(), CommandSink {
      *  built-in command topic or one the app publishes on (e.g. after a prefix
      *  change made a stored filter collide) would get duplicate deliveries or
      *  the app's own telemetry echoed back, so it is skipped. */
+    /** Stored outbound topics that are still safe under the current prefix, device name and custom filters. */
+    private fun safeOutbound(): List<OutboundTopic> = OutboundTopicValidator.safe(
+        customOutboundRaw,
+        currentTopics.inboundTopics() + currentTopics.outboundTopics(),
+        customTopics.map { it.filter },
+        "${current.topicPrefix}/",
+    )
+
     private fun activeCustomTopics(): List<CustomTopic> {
         // Custom outbound topics count as our own: a filter covering one would echo it back.
-        val own = currentTopics.inboundTopics() + currentTopics.outboundTopics() + customOutbound.map { it.topic }
+        val own = currentTopics.inboundTopics() + currentTopics.outboundTopics() + customOutboundRaw.map { it.topic }
         return customTopics.filter { t -> t.enabled && own.none { TopicFilter.overlaps(it, t.filter) } }
     }
 

@@ -47,6 +47,7 @@ object TopicsTransfer {
         existing: List<CustomTopic>,
         builtIn: Collection<String>,
         existingOutbound: List<OutboundTopic> = emptyList(),
+        reservedPrefix: String = "",
     ): Result {
         if (text.length > MAX_FILE_BYTES) return Result.Error("File is too large")
         val (incoming, incomingOut) = try {
@@ -72,7 +73,7 @@ object TopicsTransfer {
         val merged = existing + fresh
         val mergedOut = existingOutbound + freshOut
         CustomTopicValidator.validateAll(merged, builtIn + mergedOut.map { it.topic })?.let { return Result.Error(it) }
-        OutboundTopicValidator.validateAll(mergedOut, builtIn, merged.map { it.filter })?.let { return Result.Error(it) }
+        OutboundTopicValidator.validateAll(mergedOut, builtIn, merged.map { it.filter }, reservedPrefix)?.let { return Result.Error(it) }
         return Result.Ok(merged, fresh.size, mergedOut, freshOut.size)
     }
 }

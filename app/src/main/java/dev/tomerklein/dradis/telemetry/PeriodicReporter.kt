@@ -34,7 +34,14 @@ class PeriodicReporter(
                     if (cur.locationEnabled) LocationPublisher.publishCurrent(sink)
                     if (cur.telemetryEnabled) telemetryReporter.publishAll()
                     if (cur.sensorsEnabled) sensorReporter.publish()
-                    extra()
+                    // A failing extra hook must not end the periodic loop.
+                    try {
+                        extra()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        sink.logInfo("Custom outbound update failed: ${e.javaClass.simpleName}")
+                    }
                 }
                 val interval = cur.updateIntervalSeconds.coerceAtLeast(15)
                 delay(interval * 1000L)

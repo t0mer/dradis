@@ -39,4 +39,23 @@ class OutboundTopicValidatorTest {
         val many = (1..OutboundTopicValidator.MAX_TOPICS + 1).map { o("i$it", "x/$it") }
         assertEquals("At most 50 outbound topics", OutboundTopicValidator.validateAll(many, builtIn, emptyList()))
     }
+
+    @Test fun rejectsTopicsUnderTheDradisPrefix() {
+        val bad = OutboundTopicValidator.validateAll(listOf(o("a", "dradis/other-phone/say")), builtIn, emptyList(), "dradis/")
+        assertNotNull(bad)
+        assertNull(OutboundTopicValidator.validateAll(listOf(o("a", "home/phone/level")), builtIn, emptyList(), "dradis/"))
+    }
+
+    @Test fun safeDropsStoredTopicsThatCollideAfterARename() {
+        val stored = listOf(o("a", "dradis/b/say"), o("b", "home/phone/level"))
+        // Device renamed to "b": dradis/b/say is now this phone's own command topic.
+        val nowBuiltIn = Topics("dradis", "b").let { it.inboundTopics() + it.outboundTopics() }
+        val safe = OutboundTopicValidator.safe(stored, nowBuiltIn, emptyList(), "dradis/")
+        assertEquals(listOf("home/phone/level"), safe.map { it.topic })
+    }
+
+    @Test fun safeDropsTopicsCoveredByAnInboundFilter() {
+        val safe = OutboundTopicValidator.safe(listOf(o("a", "x/y")), builtIn, listOf("x/#"), "dradis/")
+        assertEquals(emptyList<OutboundTopic>(), safe)
+    }
 }

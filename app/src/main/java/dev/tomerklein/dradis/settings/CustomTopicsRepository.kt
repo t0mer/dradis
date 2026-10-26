@@ -67,13 +67,14 @@ class CustomTopicsRepository(private val context: Context) {
      *  ([builtIn]) and the stored inbound custom filters. Returns the error, or null. */
     suspend fun updateOutbound(
         builtIn: Collection<String>,
+        reservedPrefix: String,
         transform: (List<OutboundTopic>) -> List<OutboundTopic>,
     ): String? {
         var error: String? = null
         context.customTopicsStore.edit { prefs ->
             val next = transform(decodeOutbound(prefs[outKey]))
             val filters = decode(prefs[key]).map { it.filter }
-            error = OutboundTopicValidator.validateAll(next, builtIn, filters)
+            error = OutboundTopicValidator.validateAll(next, builtIn, filters, reservedPrefix)
             if (error == null) prefs[outKey] = SecureStore.encrypt(json.encodeToString(next))
         }
         return error
@@ -82,13 +83,14 @@ class CustomTopicsRepository(private val context: Context) {
     /** Both lists changed together (import): validated as a pair, written atomically. */
     suspend fun updateBoth(
         builtIn: Collection<String>,
+        reservedPrefix: String,
         transform: (List<CustomTopic>, List<OutboundTopic>) -> Pair<List<CustomTopic>, List<OutboundTopic>>,
     ): String? {
         var error: String? = null
         context.customTopicsStore.edit { prefs ->
             val (c, o) = transform(decode(prefs[key]), decodeOutbound(prefs[outKey]))
             error = CustomTopicValidator.validateAll(c, builtIn + o.map { it.topic })
-                ?: OutboundTopicValidator.validateAll(o, builtIn, c.map { it.filter })
+                ?: OutboundTopicValidator.validateAll(o, builtIn, c.map { it.filter }, reservedPrefix)
             if (error == null) {
                 prefs[key] = SecureStore.encrypt(json.encodeToString(c))
                 prefs[outKey] = SecureStore.encrypt(json.encodeToString(o))
