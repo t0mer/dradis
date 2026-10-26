@@ -57,4 +57,32 @@ class TopicsTransferTest {
         assertEquals("At most 100 custom topics", err(TopicsTransfer.import(TopicsTransfer.export(listOf(t("z", "z/z"))), many, builtIn)))
         assertEquals("File is too large", err(TopicsTransfer.import("x".repeat(TopicsTransfer.MAX_FILE_BYTES + 1), emptyList(), builtIn)))
     }
+
+    private fun o(id: String, topic: String) = OutboundTopic(id, topic, OutboundSource.BATTERY_LEVEL, retain = true)
+
+    @Test fun outboundTopicsRoundTripDisabledWithFreshIds() {
+        val text = TopicsTransfer.export(listOf(t("a", "x/a")), listOf(o("o1", "home/phone/level")))
+        val r = ok(TopicsTransfer.import(text, emptyList(), builtIn))
+        assertEquals(1, r.addedOutbound)
+        val out = r.mergedOutbound.single()
+        assertEquals("home/phone/level", out.topic)
+        assertTrue(out.retain)
+        assertTrue("outbound imports start disabled", !out.enabled)
+        assertNotEquals("o1", out.id)
+    }
+
+    @Test fun outboundOnlyFileIsAccepted() {
+        val text = TopicsTransfer.export(emptyList(), listOf(o("o1", "home/phone/level")))
+        assertEquals(1, ok(TopicsTransfer.import(text, emptyList(), builtIn)).addedOutbound)
+    }
+
+    @Test fun rejectsOutboundTopicTheAppUsesItself() {
+        val text = TopicsTransfer.export(emptyList(), listOf(o("o1", "dradis/phone/battery")))
+        assertTrue(TopicsTransfer.import(text, emptyList(), builtIn) is TopicsTransfer.Result.Error)
+    }
+
+    @Test fun rejectsOutboundTopicCoveredByAnInboundFilterInTheSameFile() {
+        val text = TopicsTransfer.export(listOf(t("a", "home/#")), listOf(o("o1", "home/phone/level")))
+        assertTrue(TopicsTransfer.import(text, emptyList(), builtIn) is TopicsTransfer.Result.Error)
+    }
 }
