@@ -19,7 +19,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.background
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -71,7 +74,7 @@ fun GalleryScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(items, key = { it.name }) { item ->
-                Thumbnail(item, 300, Modifier.aspectRatio(1f).clickable { opened = item })
+                Thumbnail(item, 300, Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium).clickable { opened = item })
             }
         }
     }
@@ -94,7 +97,7 @@ private fun Thumbnail(item: GalleryItem, maxPx: Int, modifier: Modifier) {
     if (b != null) {
         Image(b.asImageBitmap(), contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
     } else {
-        Box(modifier)
+        Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant))
     }
 }
 
