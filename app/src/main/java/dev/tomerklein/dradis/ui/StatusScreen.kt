@@ -15,11 +15,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ProcessLifecycleOwner
 import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.mqtt.ConnState
 import dev.tomerklein.dradis.mqtt.MqttService
@@ -43,6 +50,18 @@ fun StatusScreen(modifier: Modifier = Modifier) {
     val bgLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
+
+    // Permission checks are plain reads, so re-run them when the user comes back
+    // from a system Settings screen (e.g. App info after allowing restricted settings).
+    var resumes by remember { mutableIntStateOf(0) }
+    DisposableEffect(Unit) {
+        val owner = ProcessLifecycleOwner.get().lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumes++
+        }
+        owner.addObserver(observer)
+        onDispose { owner.removeObserver(observer) }
+    }
 
     Column(
         modifier = modifier
@@ -76,6 +95,29 @@ fun StatusScreen(modifier: Modifier = Modifier) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Allow all the time") }
+            }
+        }
+
+        // Android 15 grays out the SMS "Allow" button for apps installed from an
+        // APK file until "Allow restricted settings" is turned on in App info.
+        val smsRestricted = remember(resumes, settings.smsEnabled) {
+            settings.smsEnabled && Permissions.smsBlockedByRestrictedSettings(context)
+        }
+        if (smsRestricted) {
+            ConsoleCard(error = true) {
+                Text("SMS permission blocked", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Android restricts SMS access for apps installed from an APK " +
+                        "file, so “Allow” is grayed out (“App was denied access”). " +
+                        "To unblock it once: tap “Grant SMS / Location / Camera / " +
+                        "Notifications” below and dismiss the prompt, then open App " +
+                        "info → ⋮ → Allow restricted settings, confirm, and allow SMS " +
+                        "under Permissions.",
+                )
+                Button(
+                    onClick = { context.startActivity(Permissions.appDetailsIntent(context)) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Open App info") }
             }
         }
 

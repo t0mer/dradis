@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -44,6 +45,21 @@ object Permissions {
     fun notificationPolicyGranted(context: Context): Boolean {
         val nm = context.getSystemService(NotificationManager::class.java)
         return nm?.isNotificationPolicyAccessGranted == true
+    }
+
+    /** True when SEND_SMS is missing and Android 15's restricted settings likely
+     *  block it: the app was installed by opening an APK file, so the system
+     *  grays out "Allow" until the user enables "Allow restricted settings" in
+     *  App info. There is no public API for the restriction itself, so this keys
+     *  off the install source; adb / store installs are never restricted. */
+    fun smsBlockedByRestrictedSettings(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return false
+        if (isGranted(context, Manifest.permission.SEND_SMS)) return false
+        val source = runCatching {
+            context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+        }.getOrNull() ?: return false
+        return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
+            source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
     }
 
     fun batteryOptimizationIgnored(context: Context): Boolean {
