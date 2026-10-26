@@ -28,7 +28,6 @@ import dev.tomerklein.dradis.commands.GetStatusHandler
 import dev.tomerklein.dradis.commands.LocationHandler
 import dev.tomerklein.dradis.commands.NotifyHandler
 import dev.tomerklein.dradis.commands.PhotoHandler
-import dev.tomerklein.dradis.commands.PictureStore
 import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
@@ -202,7 +201,7 @@ class MqttService : LifecycleService(), CommandSink {
                 context = this,
                 tts = ttsSpeaker,
                 settings = { current },
-                pictures = PictureStore(this),
+                pictures = ServiceLocator.pictures,
                 log = ::logInfo,
             ),
             _values = ServiceLocator.customTopicValues,

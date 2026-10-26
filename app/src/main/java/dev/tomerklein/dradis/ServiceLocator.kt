@@ -1,6 +1,7 @@
 package dev.tomerklein.dradis
 
 import android.content.Context
+import dev.tomerklein.dradis.commands.PictureStore
 import dev.tomerklein.dradis.commands.ReceivedValue
 import dev.tomerklein.dradis.log.MqttLog
 import dev.tomerklein.dradis.mqtt.ConnectionStatus
@@ -20,6 +21,8 @@ object ServiceLocator {
         private set
     lateinit var customTopics: CustomTopicsRepository
         private set
+    lateinit var pictures: PictureStore
+        private set
 
     /** Latest value per custom-topic id, written by the service, read by the UI. */
     val customTopicValues = MutableStateFlow<Map<String, ReceivedValue>>(emptyMap())
@@ -33,6 +36,7 @@ object ServiceLocator {
         settings = SettingsRepository(app)
         mqttLog = MqttLog()
         customTopics = CustomTopicsRepository(app)
+        pictures = PictureStore(app)
     }
 
     fun updateConnection(status: ConnectionStatus) {
