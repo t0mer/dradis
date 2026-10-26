@@ -75,6 +75,10 @@ object PayloadExtractors {
         null
     } catch (_: RuntimeException) {
         null
+    } catch (_: StackOverflowError) {
+        // java.util.regex recurses per iteration on patterns like (a|b)*; an imported or
+        // hostile extractor must not be able to take the service down.
+        null
     }
 
     private fun jsonPath(input: String, path: String): String? = runCatching {
