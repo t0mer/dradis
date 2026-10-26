@@ -12,6 +12,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -24,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 private enum class Tab(val label: String) { STATUS("Status"), SETTINGS("Settings"), LOGS("Logs"), TOPICS("Topics"), GALLERY("Gallery") }
 
@@ -40,7 +44,12 @@ fun MainScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dradis") },
+                title = { Text("DRADIS") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
                 actions = {
                     IconButton(onClick = { discovering = true; about = false }) {
                         Icon(Icons.Filled.Search, contentDescription = "Discover topics")
@@ -52,35 +61,40 @@ fun MainScreen() {
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                 NavigationBarItem(
                     selected = tab == Tab.STATUS,
                     onClick = { select(Tab.STATUS) },
                     icon = { Icon(Icons.Filled.Wifi, contentDescription = null) },
+                    colors = navColors(),
                     label = { Text(Tab.STATUS.label) },
                 )
                 NavigationBarItem(
                     selected = tab == Tab.SETTINGS,
                     onClick = { select(Tab.SETTINGS) },
                     icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                    colors = navColors(),
                     label = { Text(Tab.SETTINGS.label) },
                 )
                 NavigationBarItem(
                     selected = tab == Tab.LOGS,
                     onClick = { select(Tab.LOGS) },
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                    colors = navColors(),
                     label = { Text(Tab.LOGS.label) },
                 )
                 NavigationBarItem(
                     selected = tab == Tab.TOPICS,
                     onClick = { select(Tab.TOPICS) },
                     icon = { Icon(Icons.Filled.Tag, contentDescription = null) },
+                    colors = navColors(),
                     label = { Text(Tab.TOPICS.label) },
                 )
                 NavigationBarItem(
                     selected = tab == Tab.GALLERY,
                     onClick = { select(Tab.GALLERY) },
                     icon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                    colors = navColors(),
                     label = { Text(Tab.GALLERY.label) },
                 )
             }
@@ -104,3 +118,12 @@ fun MainScreen() {
         }
     }
 }
+
+@Composable
+private fun navColors() = NavigationBarItemDefaults.colors(
+    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
