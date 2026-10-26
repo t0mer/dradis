@@ -23,6 +23,7 @@ class CustomTopicsRepository(private val context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val key = stringPreferencesKey("topics_json")
+    private val outKey = stringPreferencesKey("outbound_json")
 
     val topics: Flow<List<CustomTopic>> =
         context.customTopicsStore.data
@@ -31,13 +32,16 @@ class CustomTopicsRepository(private val context: Context) {
             .map { decode(it[key]) }
             .distinctUntilChanged()
 
+    /** Topics the phone publishes device values to. */
+    val outbound: Flow<List<OutboundTopic>> =
+        context.customTopicsStore.data
+            .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+            .map { decodeOutbound(it[outKey]) }
+            .distinctUntilChanged()
+
     /** Validates then stores [list]. Returns the validation error, or null on success. */
-    suspend fun save(list: List<CustomTopic>, builtIn: Collection<String>): String? {
-        CustomTopicValidator.validateAll(list, builtIn)?.let { return it }
-        val encoded = SecureStore.encrypt(json.encodeToString(list))
-        context.customTopicsStore.edit { it[key] = encoded }
-        return null
-    }
+    suspend fun save(list: List<CustomTopic>, builtIn: Collection<String>): String? =
+        update(builtIn) { list }
 
     /**
      * Atomic read-modify-write: [transform] sees the stored list inside DataStore's serialized
@@ -51,10 +55,55 @@ class CustomTopicsRepository(private val context: Context) {
         var error: String? = null
         context.customTopicsStore.edit { prefs ->
             val next = transform(decode(prefs[key]))
-            error = CustomTopicValidator.validateAll(next, builtIn)
+            // A custom inbound filter must not cover a topic the phone publishes on.
+            val reserved = builtIn + decodeOutbound(prefs[outKey]).map { it.topic }
+            error = CustomTopicValidator.validateAll(next, reserved)
             if (error == null) prefs[key] = SecureStore.encrypt(json.encodeToString(next))
         }
         return error
+    }
+
+    /** Atomic read-modify-write of the outbound list, validated against the app's own topics
+     *  ([builtIn]) and the stored inbound custom filters. Returns the error, or null. */
+    suspend fun updateOutbound(
+        builtIn: Collection<String>,
+        reservedPrefix: String,
+        transform: (List<OutboundTopic>) -> List<OutboundTopic>,
+    ): String? {
+        var error: String? = null
+        context.customTopicsStore.edit { prefs ->
+            val next = transform(decodeOutbound(prefs[outKey]))
+            val filters = decode(prefs[key]).map { it.filter }
+            error = OutboundTopicValidator.validateAll(next, builtIn, filters, reservedPrefix)
+            if (error == null) prefs[outKey] = SecureStore.encrypt(json.encodeToString(next))
+        }
+        return error
+    }
+
+    /** Both lists changed together (import): validated as a pair, written atomically. */
+    suspend fun updateBoth(
+        builtIn: Collection<String>,
+        reservedPrefix: String,
+        transform: (List<CustomTopic>, List<OutboundTopic>) -> Pair<List<CustomTopic>, List<OutboundTopic>>,
+    ): String? {
+        var error: String? = null
+        context.customTopicsStore.edit { prefs ->
+            val (c, o) = transform(decode(prefs[key]), decodeOutbound(prefs[outKey]))
+            error = CustomTopicValidator.validateAll(c, builtIn + o.map { it.topic })
+                ?: OutboundTopicValidator.validateAll(o, builtIn, c.map { it.filter }, reservedPrefix)
+            if (error == null) {
+                prefs[key] = SecureStore.encrypt(json.encodeToString(c))
+                prefs[outKey] = SecureStore.encrypt(json.encodeToString(o))
+            }
+        }
+        return error
+    }
+
+    private fun decodeOutbound(stored: String?): List<OutboundTopic> {
+        if (stored == null) return emptyList()
+        val text = runCatching { SecureStore.decrypt(stored) }.getOrNull() ?: return emptyList()
+        return runCatching { json.decodeFromString<List<OutboundTopic>>(text) }.getOrDefault(emptyList())
+            .take(OutboundTopicValidator.MAX_TOPICS)
     }
 
     private fun decode(stored: String?): List<CustomTopic> {

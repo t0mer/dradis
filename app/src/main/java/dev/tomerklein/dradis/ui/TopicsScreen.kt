@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,6 +42,8 @@ import dev.tomerklein.dradis.settings.CustomTopic
 import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.settings.NotifyIcon
+import dev.tomerklein.dradis.settings.OutboundTopic
+import dev.tomerklein.dradis.ui.components.SectionHeader
 import dev.tomerklein.dradis.settings.TopicsTransfer
 import dev.tomerklein.dradis.ui.MonoStyle
 import dev.tomerklein.dradis.ui.components.ConsoleCard
@@ -55,7 +58,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Custom inbound topics: list with enable switch and last value, add/edit/delete, JSON import/export. */
+/** Custom inbound topics and outbound (published) topics: enable switch, add/edit/delete, JSON import/export. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TopicsScreen(modifier: Modifier = Modifier) {
@@ -63,6 +66,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val topics by repo.topics.collectAsState(initial = emptyList())
+    val outbound by repo.outbound.collectAsState(initial = emptyList())
     val values by ServiceLocator.customTopicValues.collectAsState()
     val settings by ServiceLocator.settings.settings.collectAsState(initial = DradisSettings())
     val builtIn = remember(settings.topicPrefix, settings.deviceName) {
@@ -73,6 +77,9 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
     var editing by remember { mutableStateOf<CustomTopic?>(null) }
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<CustomTopic?>(null) }
+    var addingOut by remember { mutableStateOf(false) }
+    var editingOut by remember { mutableStateOf<OutboundTopic?>(null) }
+    var deletingOut by remember { mutableStateOf<OutboundTopic?>(null) }
 
     /** Atomically applies [change] to the stored list; returns the error to show, or null. */
     suspend fun update(change: (List<CustomTopic>) -> List<CustomTopic>): String? = try {
@@ -83,9 +90,17 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         "Could not save: ${e.message ?: e.javaClass.simpleName}"
     }
 
+    suspend fun updateOut(change: (List<OutboundTopic>) -> List<OutboundTopic>): String? = try {
+        repo.updateOutbound(builtIn, "${settings.topicPrefix}/", change)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        "Could not save: ${e.message ?: e.javaClass.simpleName}"
+    }
+
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
-            val text = TopicsTransfer.export(repo.topics.first())
+            val text = TopicsTransfer.export(repo.topics.first(), repo.outbound.first())
             message = withContext(Dispatchers.IO) {
                 runCatching {
                     (context.contentResolver.openOutputStream(uri) ?: error("no stream")).use { it.write(text.toByteArray()) }
@@ -100,16 +115,16 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
                 val text = withContext(Dispatchers.IO) { readBounded(context, uri) }
                 var result: TopicsTransfer.Result? = null
                 val err = withContext(Dispatchers.Default) {
-                    update { cur ->
-                        when (val r = TopicsTransfer.import(text, cur, builtIn)) {
-                            is TopicsTransfer.Result.Ok -> r.merged.also { result = r }
-                            is TopicsTransfer.Result.Error -> cur.also { result = r }
+                    repo.updateBoth(builtIn, "${settings.topicPrefix}/") { cur, curOut ->
+                        when (val r = TopicsTransfer.import(text, cur, builtIn, curOut, "${settings.topicPrefix}/")) {
+                            is TopicsTransfer.Result.Ok -> { result = r; r.merged to r.mergedOutbound }
+                            is TopicsTransfer.Result.Error -> { result = r; cur to curOut }
                         }
                     }
                 }
                 when (val r = result) {
                     is TopicsTransfer.Result.Error -> r.message
-                    is TopicsTransfer.Result.Ok -> err ?: "Imported ${r.added} topics (disabled until you switch them on)"
+                    is TopicsTransfer.Result.Ok -> err ?: "Imported ${r.added} topics and ${r.addedOutbound} outbound topics (disabled until you switch them on)"
                     null -> err
                 }
             } catch (e: CancellationException) {
@@ -124,10 +139,10 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { adding = true }) { Text("Add") }
             OutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text("Import") }
-            OutlinedButton(enabled = topics.isNotEmpty(), onClick = { exporter.launch("dradis-topics.json") }) { Text("Export") }
+            OutlinedButton(enabled = topics.isNotEmpty() || outbound.isNotEmpty(), onClick = { exporter.launch("dradis-topics.json") }) { Text("Export") }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        if (topics.isEmpty()) {
+        if (topics.isEmpty() && outbound.isEmpty()) {
             Text("No custom topics yet. Add one, import a file, or use Discover (search icon) to pick from live traffic.")
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -137,6 +152,26 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
                     onToggle = { on -> scope.launch { message = update { l -> l.map { if (it.id == t.id) it.copy(enabled = on) else it } } } },
                     onEdit = { editing = t },
                     onDelete = { deleting = t },
+                )
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        SectionHeader("Publish")
+                        Text(
+                            "Send a device value to a topic of your choice on connect and every update interval.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    TextButton(onClick = { addingOut = true }) { Text("Add") }
+                }
+            }
+            items(outbound, key = { "out-" + it.id }) { t ->
+                OutboundCard(
+                    t,
+                    onToggle = { on -> scope.launch { message = updateOut { l -> l.map { if (it.id == t.id) it.copy(enabled = on) else it } } } },
+                    onEdit = { editingOut = t },
+                    onDelete = { deletingOut = t },
                 )
             }
         }
@@ -154,6 +189,34 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
             initial = cur,
             onDismiss = { editing = null },
             onSave = { t -> update { l -> l.map { if (it.id == cur.id) t else it } }?.also { return@TopicEditorDialog it }; editing = null; null },
+        )
+    }
+    if (addingOut) {
+        OutboundEditorDialog(
+            initial = null,
+            onDismiss = { addingOut = false },
+            onSave = { t -> updateOut { it + t }?.also { return@OutboundEditorDialog it }; addingOut = false; null },
+        )
+    }
+    editingOut?.let { cur ->
+        OutboundEditorDialog(
+            initial = cur,
+            onDismiss = { editingOut = null },
+            onSave = { t -> updateOut { l -> l.map { if (it.id == cur.id) t else it } }?.also { return@OutboundEditorDialog it }; editingOut = null; null },
+        )
+    }
+    deletingOut?.let { t ->
+        AlertDialog(
+            onDismissRequest = { deletingOut = null },
+            title = { Text("Stop publishing to \"${t.topic}\"?") },
+            text = { Text("A retained value already on the broker stays there until you clear it.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deletingOut = null
+                    scope.launch { message = updateOut { l -> l.filter { it.id != t.id } } }
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deletingOut = null }) { Text("Cancel") } },
         )
     }
     deleting?.let { t ->
