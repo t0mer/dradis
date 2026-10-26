@@ -87,6 +87,7 @@ reconnects automatically as the phone moves between networks.
 | **Home Assistant** | MQTT auto‑discovery: appears as one device with a device_tracker, sensors/binary‑sensors and command buttons. |
 | **Stay connected while asleep** | Optional Wi‑Fi lock + partial wake lock so the link survives screen‑off / device sleep. |
 | **Autostart** | Starts the service after boot (when enabled). |
+| **Gallery** | The **Gallery** tab lists pictures received on custom topics of type Picture (raw JPEG/PNG or base64, ≤ 5 MB): thumbnails, full view, **share** to other apps and delete. The newest 100 are kept in app‑private storage. |
 | **Encrypted settings** | Settings (incl. broker credentials and CA certificates) are encrypted at rest with AES‑256‑GCM using an Android Keystore key. |
 
 ---
@@ -455,6 +456,7 @@ discovery configs (empty retained payloads).
   activity; restrict them with ACLs.
 - `cmd/<verb>` (restart, reconnect, stop_alarm, send_logs, …) has no per‑sender
   check: the broker's authentication and ACLs are the only access control.
+- Received pictures are stored in app‑private storage under random file names (never taken from a payload). Sharing goes through a `FileProvider` that exposes only the gallery folder, and only to the app the user picks.
 - Keystores and `keystore.properties` are git‑ignored.
 
 ---
