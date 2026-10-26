@@ -48,7 +48,9 @@ reconnects automatically as the phone moves between networks.
 
 ## Screenshots
 
-<!-- TODO: screenshot — these predate the About tab and the "Dradis" title; recapture -->
+<!-- TODO: screenshot — these predate the Console redesign (new theme, Topics and Gallery tabs, About moved to the top bar); recapture light and dark on a device -->
+
+The app uses a **Console** Material 3 look: dark-first with a green accent, a matching light theme, and monospace for technical data. It follows the phone's light/dark setting.
 
 | Status | Settings | Logs |
 |---|---|---|
