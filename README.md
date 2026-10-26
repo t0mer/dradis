@@ -34,6 +34,7 @@ reconnects automatically as the phone moves between networks.
 - [Permissions](#permissions)
 - [Settings reference](#settings-reference)
 - [MQTT topic contract](#mqtt-topic-contract)
+- [Custom topics](#custom-topics)
 - [Home Assistant](#home-assistant)
 - [Device & power notes](#device--power-notes)
 - [Troubleshooting](#troubleshooting)
@@ -87,6 +88,7 @@ reconnects automatically as the phone moves between networks.
 | **Home Assistant** | MQTT auto‑discovery: appears as one device with a device_tracker, sensors/binary‑sensors and command buttons. |
 | **Stay connected while asleep** | Optional Wi‑Fi lock + partial wake lock so the link survives screen‑off / device sleep. |
 | **Autostart** | Starts the service after boot (when enabled). |
+| **Custom topics** | The **Topics** tab: define your own inbound topics (text, alarm, picture, key/value, extracted value) with notify/speak flags, and import/export them as JSON. See [Custom topics](#custom-topics). |
 | **Topic discovery** | The search icon in the top bar opens **Discover**: pick a filter (default `<prefix>/#`) and a duration (max 300 s) and the app lists the topics it sees, with a short redacted preview, size and whether it was retained. **Import as custom topic** turns one into an inbound custom topic (type suggested from the payload). Opt‑in and time‑boxed; payloads are never acted on. |
 | **Gallery** | The **Gallery** tab lists pictures received on custom topics of type Picture (raw JPEG/PNG or base64, ≤ 5 MB): thumbnails, full view, **share** to other apps and delete. The newest 100 are kept in app‑private storage. |
 | **Encrypted settings** | Settings (incl. broker credentials and CA certificates) are encrypted at rest with AES‑256‑GCM using an Android Keystore key. |
@@ -370,6 +372,44 @@ mosquitto_sub -h <broker> -t "$DEV/#" -v
 ```
 
 Do not publish commands with the retain flag (`-r`): retained commands are ignored.
+
+---
+
+## Custom topics
+
+The **Topics** tab lets you subscribe to your own topics and choose how each message is processed (the
+equivalent of Zanzito's custom topics). Each topic has a name, an MQTT **filter** (`+` and a trailing `#`
+allowed), a type, and flags: *enabled*, *notify*, *speak* and a notification icon.
+
+| Type | What a message does |
+|---|---|
+| **Text** | Stores the payload as the topic's last value; optionally notifies/speaks it. |
+| **Alarm** | Any non‑empty message rings the find‑phone alarm for the duration set in Settings (ignored if the alarm is disabled or the duration is 0). The payload is not interpreted. |
+| **Picture** | Payload is a raw JPEG/PNG, base64, or `{"jpeg_b64":"…"}` (≤ 5 MB). Saved to the **Gallery**; notified only if *notify* is on. |
+| **Key/Value** | Splits the payload at the first separator (default `:`) into `label` and `value`. |
+| **Extracted** | Pulls one value out of the payload with a JSONPath subset (`$.a.b[0]`, `$['key']`) or a regex (group 1 if the pattern has one, else the whole match). |
+
+Rules worth knowing:
+
+- Retained messages and empty payloads are ignored (commands are events, not state).
+- A filter may not overlap the app's own command or telemetry topics, nor another custom topic; built‑in
+  commands always win. Up to 100 topics; at most one message per topic every 2 s.
+- Notification titles are always the topic's name, never taken from the payload. The global notification,
+  speech and alarm switches in Settings still apply.
+- Regexes run under a 100 ms budget and only on the first 8 KB of a payload.
+- **Discover** (search icon in the top bar) listens on a filter for a limited time and can import a seen
+  topic as a custom topic.
+- **Export** writes all topics to a JSON file; **Import** appends the topics of such a file (a bare JSON
+  array also works). Imported topics get new ids and arrive **disabled** (switch them on after checking them), and the whole file is rejected if any entry is invalid or
+  collides with an existing topic. Files over 256 KB are refused.
+
+```json
+{ "version": 1, "topics": [
+  { "id": "…", "name": "Door", "filter": "home/door/state", "type": "TEXT", "notify": true }
+] }
+```
+
+The list is stored encrypted on the device; it is not included in backups (`allowBackup="false"`).
 
 ---
 
