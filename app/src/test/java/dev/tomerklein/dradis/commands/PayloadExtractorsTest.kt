@@ -2,6 +2,7 @@ package dev.tomerklein.dradis.commands
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PayloadExtractorsTest {
@@ -44,5 +45,22 @@ class PayloadExtractorsTest {
         assertEquals("t" to "plain", PayloadExtractors.keyValue(" plain ", ":", "t"))
         assertEquals("t" to "v", PayloadExtractors.keyValue(": v", ":", "t"))
         assertEquals("k" to "v", PayloadExtractors.keyValue("k=>v", "=>", "t"))
+    }
+
+    @Test fun catastrophicRegexIsAbortedWithinTheBudget() {
+        val evil = "a".repeat(5_000) + "!"
+        val start = System.nanoTime()
+        assertNull(PayloadExtractors.extract(evil, "(a+)+$"))
+        val ms = (System.nanoTime() - start) / 1_000_000
+        assertTrue("took ${ms}ms", ms < 2_000)
+    }
+
+    @Test fun optionalGroupThatDidNotCaptureIsNoValue() {
+        assertNull(PayloadExtractors.extract("temp=x", "temp=(\\d+)?"))
+        assertEquals("temp=21", PayloadExtractors.extract("temp=21", "temp=\\d+"))
+    }
+
+    @Test fun repeatedExtractionUsesTheSamePattern() {
+        repeat(3) { assertEquals("1", PayloadExtractors.extract("n=1", "n=(\\d)")) }
     }
 }

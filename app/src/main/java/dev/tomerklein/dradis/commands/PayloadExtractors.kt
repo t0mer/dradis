@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Value extraction for custom topics. Payloads are untrusted, so input is capped
@@ -15,6 +16,8 @@ object PayloadExtractors {
 
     /** Longest payload prefix examined; bounds regex and JSON work. */
     const val MAX_INPUT = 8 * 1024
+
+    private const val MAX_CACHED_PATTERNS = 64
 
     private val json = Json { isLenient = true }
 
@@ -35,9 +38,44 @@ object PayloadExtractors {
         return label to text.substring(i + separator.length).trim()
     }
 
-    private fun regex(input: String, pattern: String): String? = runCatching {
-        Regex(pattern).find(input)?.let { m -> if (m.groupValues.size > 1) m.groupValues[1] else m.value }
-    }.getOrNull()
+    /** Time budget for one regex match; patterns are user-defined and java.util.regex
+     *  has no timeout of its own, so a catastrophic pattern would pin a thread. */
+    const val REGEX_BUDGET_MS = 100L
+
+    private val regexCache = ConcurrentHashMap<String, Regex>()
+
+    private class RegexTimeout : RuntimeException()
+
+    /** Throws [RegexTimeout] from `charAt` once the deadline has passed, which
+     *  aborts the matcher wherever it is backtracking. */
+    private class DeadlineChars(private val s: CharSequence, private val deadlineNanos: Long) : CharSequence {
+        override val length: Int get() = s.length
+        override fun get(index: Int): Char {
+            if (System.nanoTime() - deadlineNanos > 0) throw RegexTimeout()
+            return s[index]
+        }
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
+            DeadlineChars(s.subSequence(startIndex, endIndex), deadlineNanos)
+        override fun toString(): String = s.toString()
+    }
+
+    private fun compiled(pattern: String): Regex {
+        if (regexCache.size >= MAX_CACHED_PATTERNS) regexCache.clear()
+        return regexCache.getOrPut(pattern) { Regex(pattern) }
+    }
+
+    /** Group 1 if the pattern has one (null when it did not capture anything),
+     *  else the whole match. Null on no match, a bad pattern or a timeout. */
+    private fun regex(input: String, pattern: String): String? = try {
+        val deadline = System.nanoTime() + REGEX_BUDGET_MS * 1_000_000
+        compiled(pattern).find(DeadlineChars(input, deadline))?.let { m ->
+            if (m.groups.size > 1) m.groups[1]?.value?.takeIf { it.isNotEmpty() } else m.value
+        }
+    } catch (_: RegexTimeout) {
+        null
+    } catch (_: RuntimeException) {
+        null
+    }
 
     private fun jsonPath(input: String, path: String): String? = runCatching {
         var node: JsonElement = json.parseToJsonElement(input)
