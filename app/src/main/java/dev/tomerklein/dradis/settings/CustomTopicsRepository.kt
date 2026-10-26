@@ -2,13 +2,16 @@ package dev.tomerklein.dradis.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.IOException
 
 private val Context.customTopicsStore by preferencesDataStore(name = "dradis_custom_topics")
 
@@ -22,7 +25,11 @@ class CustomTopicsRepository(private val context: Context) {
     private val key = stringPreferencesKey("topics_json")
 
     val topics: Flow<List<CustomTopic>> =
-        context.customTopicsStore.data.map { decode(it[key]) }.distinctUntilChanged()
+        context.customTopicsStore.data
+            // A read error must not kill the collector for the life of the service.
+            .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+            .map { decode(it[key]) }
+            .distinctUntilChanged()
 
     /** Validates then stores [list]. Returns the validation error, or null on success. */
     suspend fun save(list: List<CustomTopic>, builtIn: Collection<String>): String? {
@@ -36,5 +43,6 @@ class CustomTopicsRepository(private val context: Context) {
         if (stored == null) return emptyList()
         val text = runCatching { SecureStore.decrypt(stored) }.getOrNull() ?: return emptyList()
         return runCatching { json.decodeFromString<List<CustomTopic>>(text) }.getOrDefault(emptyList())
+            .take(CustomTopicValidator.MAX_TOPICS)
     }
 }

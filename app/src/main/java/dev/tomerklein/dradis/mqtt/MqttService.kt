@@ -37,6 +37,7 @@ import dev.tomerklein.dradis.log.LogFormatter
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.ClientId
 import dev.tomerklein.dradis.settings.CustomTopic
+import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.LocationPublisher
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
@@ -50,6 +51,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.Semaphore
 
 private const val TAG = "dradis.svc"
 
@@ -95,6 +97,7 @@ class MqttService : LifecycleService(), CommandSink {
     // because onConnected runs on a transport thread while changes run on connScope.
     private var subscribedCustom: Set<String> = emptySet()
     private val customLock = Any()
+    private val pictureGate = Semaphore(1)
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
@@ -439,8 +442,16 @@ class MqttService : LifecycleService(), CommandSink {
         ioScope.launch { router.handle(topic, text) }
     }
 
-    private fun enabledCustomFilters(): Set<String> =
-        customTopics.filter { it.enabled }.map { it.filter }.toSet()
+    /** Enabled custom topics that are safe to subscribe: a filter overlapping a
+     *  built-in command topic or one the app publishes on (e.g. after a prefix
+     *  change made a stored filter collide) would get duplicate deliveries or
+     *  the app's own telemetry echoed back, so it is skipped. */
+    private fun activeCustomTopics(): List<CustomTopic> {
+        val own = currentTopics.inboundTopics() + currentTopics.outboundTopics()
+        return customTopics.filter { t -> t.enabled && own.none { TopicFilter.overlaps(it, t.filter) } }
+    }
+
+    private fun enabledCustomFilters(): Set<String> = activeCustomTopics().map { it.filter }.toSet()
 
     /** Applies a change to the custom topic list to the live client: subscribe the
      *  new filters, unsubscribe the removed ones. Not connected: [onConnected]
@@ -461,17 +472,32 @@ class MqttService : LifecycleService(), CommandSink {
      *  topics always win. Returns true if the message was consumed here. */
     private fun routeToCustomTopics(topic: String, bytes: ByteArray): Boolean {
         if (currentTopics.inboundTopics().any { TopicFilter.matches(it, topic) }) return false
-        val matched = customTopics.filter { it.enabled && TopicFilter.matches(it.filter, topic) }
+        val matched = activeCustomTopics().filter { TopicFilter.matches(it.filter, topic) }
         if (matched.isEmpty()) return false
-        // Pictures are large and binary: log only a capped, redacted prefix.
-        val preview = String(bytes, 0, minOf(bytes.size, MAX_LOGGED_PAYLOAD), StandardCharsets.UTF_8)
-        mqttLog.inbound(redactPii(topic), redactPii(preview), now())
+        // Redact, then cut (as the built-in path does) so a digit run straddling the
+        // cut is still masked. Pictures are binary: log only their size.
+        val preview = if (matched.all { it.type == CustomTopicType.PICTURE }) {
+            "<${bytes.size} bytes>"
+        } else {
+            val head = String(bytes, 0, minOf(bytes.size, MAX_LOGGED_PAYLOAD * 4), StandardCharsets.UTF_8)
+            redactPii(head).take(MAX_LOGGED_PAYLOAD)
+        }
+        mqttLog.inbound(redactPii(topic), preview, now())
         ioScope.launch {
             for (t in matched) {
+                // One picture at a time: decoding a large payload is memory-heavy, so
+                // a burst is dropped rather than queued.
+                val gated = t.type == CustomTopicType.PICTURE
+                if (gated && !pictureGate.tryAcquire()) {
+                    logInfo("${t.name}: busy, picture dropped")
+                    continue
+                }
                 try {
                     customProcessor.process(t, bytes, current) { logInfo(it) }
                 } catch (e: Exception) {
                     logInfo("Error processing custom topic ${t.name}: ${e.message}")
+                } finally {
+                    if (gated) pictureGate.release()
                 }
             }
         }
