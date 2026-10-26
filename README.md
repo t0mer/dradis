@@ -230,7 +230,9 @@ browser download, file manager or messaging app). Their SMS permission can't be
 granted: **Allow** is grayed out and tapping it shows *"App was denied access"*.
 This is an Android protection, not a DRADIS setting, so the app can't lift it
 itself. Builds installed over USB (`adb install`, `gradlew installDebug`) are not
-affected, which is why an earlier install may have worked. To unblock it once:
+affected, which is why an earlier install may have worked. On Android 15+, the
+Status tab shows an **SMS permission blocked** card while this applies, with a
+button that opens App info. To unblock it once:
 
 1. Open **Settings → Apps → DRADIS → Permissions → SMS** and tap the grayed
    **Allow**. Dismiss the *"App was denied access"* dialog; it has to be shown
