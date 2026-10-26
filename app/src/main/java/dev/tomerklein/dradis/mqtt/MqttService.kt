@@ -30,6 +30,7 @@ import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
 import dev.tomerklein.dradis.commands.TtsSpeaker
+import dev.tomerklein.dradis.log.LogFormatter
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.ClientId
 import dev.tomerklein.dradis.settings.DradisSettings
@@ -121,7 +122,9 @@ class MqttService : LifecycleService(), CommandSink {
 
     override fun publish(topic: String, payload: String, retain: Boolean) {
         client?.publish(topic, payload, retain)
-        mqttLog.outbound(topic, payload, now())
+        // Cap what the in-app buffer keeps: a base64 photo would otherwise sit
+        // in memory (and in log dumps) at full size.
+        mqttLog.outbound(topic, payload.take(MAX_LOGGED_PAYLOAD), now())
     }
 
     override fun publish(topic: String, payload: ByteArray, retain: Boolean) {
@@ -405,10 +408,9 @@ class MqttService : LifecycleService(), CommandSink {
         ioScope.launch { router.handle(topic, text) }
     }
 
-    /** Mask phone-number-like digit runs (keep the last 3 for context). Applied
-     *  to inbound only — outbound location coordinates must stay intact. */
-    private fun redactPii(s: String): String =
-        Regex("""\d{7,}""").replace(s) { "•••" + it.value.takeLast(3) }
+    /** Inbound entries are redacted in the in-app log; outbound ones stay intact
+     *  there (coordinates) and are redacted only when dumped by `send_logs`. */
+    private fun redactPii(s: String): String = LogFormatter.redactPii(s)
 
     // --- Notification + status ----------------------------------------------
     private fun updateStatus(state: ConnState, sel: BrokerSelector.Selection?, detail: String) {

@@ -12,7 +12,7 @@ import org.junit.Test
 
 private class FakeSink(override val topics: Topics) : CommandSink {
     override val appContext: Context get() = error("unused in these tests")
-    override val settings = DradisSettings()
+    override var settings = DradisSettings()
     override val currentSsid: String? = null
     override val onWifi = false
     val published = mutableListOf<Pair<String, String>>()
@@ -34,6 +34,8 @@ class CmdHandlerTest {
         override suspend fun handle(topic: String, payload: String, sink: CommandSink) { photoTopics += topic }
     }
 
+    private var now = 0L
+
     private fun handler(fix: LocationPayload? = null) = CmdHandler(
         mqttLog = log,
         onHeartbeat = { calls += "heartbeat" },
@@ -42,6 +44,7 @@ class CmdHandlerTest {
         photo = photo,
         stopAlarm = { calls += "stop_alarm" },
         locate = { fix },
+        clock = { now },
     )
 
     @Test fun handlesOnlyCmdTopics() {
@@ -54,6 +57,33 @@ class CmdHandlerTest {
             handler().handle(topics.cmd(v), "{}", sink)
         }
         assertEquals(listOf("heartbeat", "reconnect", "restart", "stop_alarm"), calls)
+    }
+
+    @Test fun restartAndReconnectShareACooldown() = runTest {
+        val h = handler()
+        h.handle(topics.cmd("restart"), "{}", sink)
+        now = 9_999
+        h.handle(topics.cmd("reconnect"), "{}", sink)
+        h.handle(topics.cmd("restart"), "{}", sink)
+        assertEquals(listOf("restart"), calls)
+        assertTrue(sink.infos.any { "cooldown" in it })
+        now = 10_000
+        h.handle(topics.cmd("reconnect"), "{}", sink)
+        assertEquals(listOf("restart", "reconnect"), calls)
+    }
+
+    @Test fun cooldownDoesNotBlockOtherVerbs() = runTest {
+        val h = handler()
+        h.handle(topics.cmd("restart"), "{}", sink)
+        h.handle(topics.cmd("stop_alarm"), "{}", sink)
+        assertEquals(listOf("restart", "stop_alarm"), calls)
+    }
+
+    @Test fun setBookmarkHonoursLocationSetting() = runTest {
+        sink.settings = sink.settings.copy(locationEnabled = false)
+        handler(LocationPayload(1.5, 2.5, 3f, 4L)).handle(topics.cmd("set_bookmark"), "{}", sink)
+        assertTrue(sink.infos.any { "location disabled" in it })
+        assertFalse(sink.infos.any { "1.5,2.5" in it })
     }
 
     @Test fun takePictureDelegatesToPhotoTopic() = runTest {
