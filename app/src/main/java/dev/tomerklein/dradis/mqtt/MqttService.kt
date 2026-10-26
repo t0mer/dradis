@@ -19,13 +19,16 @@ import dev.tomerklein.dradis.BuildConfig
 import dev.tomerklein.dradis.MainActivity
 import dev.tomerklein.dradis.R
 import dev.tomerklein.dradis.ServiceLocator
+import dev.tomerklein.dradis.commands.AndroidCustomTopicEffects
 import dev.tomerklein.dradis.commands.CmdHandler
 import dev.tomerklein.dradis.commands.CommandRouter
 import dev.tomerklein.dradis.commands.CommandSink
+import dev.tomerklein.dradis.commands.CustomTopicProcessor
 import dev.tomerklein.dradis.commands.GetStatusHandler
 import dev.tomerklein.dradis.commands.LocationHandler
 import dev.tomerklein.dradis.commands.NotifyHandler
 import dev.tomerklein.dradis.commands.PhotoHandler
+import dev.tomerklein.dradis.commands.PictureStore
 import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
@@ -33,6 +36,7 @@ import dev.tomerklein.dradis.commands.TtsSpeaker
 import dev.tomerklein.dradis.log.LogFormatter
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.ClientId
+import dev.tomerklein.dradis.settings.CustomTopic
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.LocationPublisher
 import dev.tomerklein.dradis.telemetry.PeriodicReporter
@@ -84,6 +88,13 @@ class MqttService : LifecycleService(), CommandSink {
     private lateinit var sensorReporter: SensorReporter
     private lateinit var periodicReporter: PeriodicReporter
     private lateinit var ttsSpeaker: TtsSpeaker
+    private lateinit var customProcessor: CustomTopicProcessor
+    @Volatile
+    private var customTopics: List<CustomTopic> = emptyList()
+    // Custom filters currently subscribed on the live client; guarded by customLock
+    // because onConnected runs on a transport thread while changes run on connScope.
+    private var subscribedCustom: Set<String> = emptySet()
+    private val customLock = Any()
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
@@ -183,6 +194,17 @@ class MqttService : LifecycleService(), CommandSink {
             ),
         )
 
+        customProcessor = CustomTopicProcessor(
+            effects = AndroidCustomTopicEffects(
+                context = this,
+                tts = ttsSpeaker,
+                settings = { current },
+                pictures = PictureStore(this),
+                log = ::logInfo,
+            ),
+            _values = ServiceLocator.customTopicValues,
+        )
+
         networkMonitor = NetworkMonitor(
             context = this,
             // Persist each freshly-read SSID so the next process start (the
@@ -212,6 +234,13 @@ class MqttService : LifecycleService(), CommandSink {
         nudgeSsidResolution()
 
         connScope.launch { settingsRepo.migrate() }
+        connScope.launch {
+            ServiceLocator.customTopics.topics.collect { list ->
+                customTopics = list
+                customProcessor.retain(list.map { it.id }.toSet())
+                syncCustomSubscriptions()
+            }
+        }
         connScope.launch {
             settingsRepo.settings.collect { s ->
                 // Ensure a stable, per-device client id before connecting. Generate
@@ -379,7 +408,8 @@ class MqttService : LifecycleService(), CommandSink {
     private fun onConnected() {
         val c = client ?: return
         val t = currentTopics
-        c.subscribe(t.inboundTopics())
+        val custom = synchronized(customLock) { enabledCustomFilters().also { subscribedCustom = it } }
+        c.subscribe(t.inboundTopics() + custom)
         c.publish(t.status, "1", retain = true)
         c.publish(t.version, BuildConfig.DRADIS_VERSION, retain = true)
         hassDiscovery.publish()
@@ -401,11 +431,51 @@ class MqttService : LifecycleService(), CommandSink {
             mqttLog.inbound(redactPii(topic), "(retained command ignored)", now())
             return
         }
+        if (routeToCustomTopics(topic, bytes)) return
         val text = bytes.toString(StandardCharsets.UTF_8)
         // The handler gets the full payload; only the in-app log is redacted +
         // length-capped so PII (phone numbers, SMS text) isn't retained verbatim.
         mqttLog.inbound(redactPii(topic), redactPii(text).take(MAX_LOGGED_PAYLOAD), now())
         ioScope.launch { router.handle(topic, text) }
+    }
+
+    private fun enabledCustomFilters(): Set<String> =
+        customTopics.filter { it.enabled }.map { it.filter }.toSet()
+
+    /** Applies a change to the custom topic list to the live client: subscribe the
+     *  new filters, unsubscribe the removed ones. Not connected: [onConnected]
+     *  subscribes the full set instead. */
+    private fun syncCustomSubscriptions() {
+        synchronized(customLock) {
+            val c = client?.takeIf { it.isConnected } ?: return
+            val want = enabledCustomFilters()
+            // Never drop a built-in subscription that happens to share a filter.
+            val builtIn = currentTopics.inboundTopics().toSet()
+            c.subscribe((want - subscribedCustom).toList())
+            c.unsubscribe((subscribedCustom - want - builtIn).toList())
+            subscribedCustom = want
+        }
+    }
+
+    /** Hands [topic] to the enabled custom topics it matches. Built-in command
+     *  topics always win. Returns true if the message was consumed here. */
+    private fun routeToCustomTopics(topic: String, bytes: ByteArray): Boolean {
+        if (currentTopics.inboundTopics().any { TopicFilter.matches(it, topic) }) return false
+        val matched = customTopics.filter { it.enabled && TopicFilter.matches(it.filter, topic) }
+        if (matched.isEmpty()) return false
+        // Pictures are large and binary: log only a capped, redacted prefix.
+        val preview = String(bytes, 0, minOf(bytes.size, MAX_LOGGED_PAYLOAD), StandardCharsets.UTF_8)
+        mqttLog.inbound(redactPii(topic), redactPii(preview), now())
+        ioScope.launch {
+            for (t in matched) {
+                try {
+                    customProcessor.process(t, bytes, current) { logInfo(it) }
+                } catch (e: Exception) {
+                    logInfo("Error processing custom topic ${t.name}: ${e.message}")
+                }
+            }
+        }
+        return true
     }
 
     /** Inbound entries are redacted in the in-app log; outbound ones stay intact
