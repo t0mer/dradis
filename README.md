@@ -192,7 +192,8 @@ flowchart LR
    SSIDs, then tap **Save settings**.
 5. On the **Status** tab, grant the permissions in this order:
    1. **Grant SMS / Location / Camera / Notifications** (the runtime group, which
-      also includes physical activity for the step sensors).
+      also includes physical activity for the step sensors). If SMS can't be
+      allowed, see [SMS permission is grayed out](#sms-permission-is-grayed-out).
    2. **Allow background location** → choose **"Allow all the time"**.
    3. **Do‑Not‑Disturb access** (lets find‑my‑phone ring through DND).
    4. **Ignore battery optimisation**.
@@ -221,6 +222,33 @@ ones in place.
 On first run, open the **Status** tab and grant the runtime group, then
 **background location ("Allow all the time")**, **Do‑Not‑Disturb access**, and
 **Ignore battery optimisation**.
+
+### SMS permission is grayed out
+
+Android puts **restricted settings** on apps installed by opening an APK file (a
+browser download, file manager or messaging app). Their SMS permission can't be
+granted: **Allow** is grayed out and tapping it shows *"App was denied access"*.
+This is an Android protection, not a DRADIS setting, so the app can't lift it
+itself. Builds installed over USB (`adb install`, `gradlew installDebug`) are not
+affected, which is why an earlier install may have worked. To unblock it once:
+
+1. Open **Settings → Apps → DRADIS → Permissions → SMS** and tap the grayed
+   **Allow**. Dismiss the *"App was denied access"* dialog; it has to be shown
+   once before the next option appears.
+2. Go back to the **App info** page (**Settings → Apps → DRADIS**, the page with
+   **Open** / **Uninstall** / **Force stop**), tap **⋮** in the top-right and
+   choose **Allow restricted settings**. Confirm with your PIN or fingerprint.
+3. Return to **Permissions → SMS** and tap **Allow**, or use the grant button on
+   the **Status** tab.
+
+The setting survives updates. If the option is missing, check that Samsung
+**Auto Blocker** (Settings → Security and privacy) or Android's **Advanced
+Protection** is off, or do it over USB:
+
+```powershell
+adb shell appops set dev.tomerklein.dradis ACCESS_RESTRICTED_SETTINGS allow
+adb shell pm grant dev.tomerklein.dradis android.permission.SEND_SMS
+```
 
 ---
 
@@ -510,6 +538,7 @@ discovery configs (empty retained payloads).
 | Phone goes offline when the screen is off | Enable **Keep connected while asleep** and apply the battery settings in [Device & power notes](#device--power-notes). |
 | Find‑my‑phone is silent in DND | Grant **Do‑Not‑Disturb access** and keep **Override silent / DND** on. |
 | `sendsms/result` has `"error": "SEND_SMS permission not granted"` or `"missing phone or text"` | Grant the SMS permission, or fix the payload. |
+| SMS **Allow** is grayed out / *"App was denied access"* | Android's restricted settings for APKs installed from a file. See [SMS permission is grayed out](#sms-permission-is-grayed-out). |
 | `step_counter` is `null` | The device has no step sensor or **Physical activity** permission is denied. |
 | A command does nothing | Check the feature is enabled in Settings, that it wasn't published retained, and look at the **Logs** tab for the reason. |
 | "App not installed" when updating | The installed APK was signed with a different key (e.g. a local debug build). Uninstall first; this wipes the settings. |
