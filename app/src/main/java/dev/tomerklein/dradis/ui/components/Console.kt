@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,7 +81,7 @@ fun ConsoleCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = container, contentColor = onContainer),
-        border = BorderStroke(1.dp, if (error) scheme.error else scheme.outline),
+        border = BorderStroke(1.dp, if (error) scheme.error else if (hero) scheme.primary else scheme.outline),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
@@ -110,10 +111,16 @@ fun MonoText(
 @Composable
 fun KeyValueRow(label: String, value: String, mono: Boolean = true) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Box(Modifier.weight(1f), contentAlignment = Alignment.TopEnd) {
-            if (mono) MonoText(value, maxLines = 3) else Text(value, maxLines = 3, overflow = TextOverflow.Ellipsis)
-        }
+        // The label may wrap but never takes more than ~40% of the row, so the value keeps room.
+        Text(
+            label,
+            Modifier.fillMaxWidth(0.4f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val end = TextAlign.End
+        if (mono) MonoText(value, Modifier.weight(1f), style = MonoStyle.copy(textAlign = end), maxLines = 6)
+        else Text(value, Modifier.weight(1f), textAlign = end, maxLines = 6, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -158,7 +165,10 @@ fun Field(
         enabled = enabled,
         textStyle = if (mono && !password) MonoStyle else MaterialTheme.typography.bodyLarge,
         modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (password) KeyboardType.Password else keyboardType,
+            autoCorrectEnabled = if (password) false else null,
+        ),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
     )
 }
