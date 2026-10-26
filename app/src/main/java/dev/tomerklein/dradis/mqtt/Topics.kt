@@ -47,6 +47,12 @@ class Topics(private val prefix: String, private val device: String) {
     )
 
     // --- Outbound (app publishes) -------------------------------------------
+    /** Every topic the app itself publishes on. A broker echoes publishes back to
+     *  matching subscriptions, so custom filters must not overlap these. */
+    fun outboundTopics(): List<String> = listOf(
+        status, version, deviceInfo, battery, wifi, sensors, location, photo, smsResult, log, logInbound, logOutbound,
+    )
+
     val status: String get() = "$base/status"
     val version: String get() = "$base/version"
     val deviceInfo: String get() = "$base/device_info"

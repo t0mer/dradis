@@ -17,6 +17,22 @@ object TopicFilter {
         }
     }
 
+    /** True if some topic name could match both [a] and [b]. */
+    fun overlaps(a: String, b: String): Boolean {
+        val x = a.split('/')
+        val y = b.split('/')
+        var i = 0
+        while (true) {
+            val hasX = i < x.size
+            val hasY = i < y.size
+            if (!hasX && !hasY) return true
+            if ((hasX && x[i] == "#") || (hasY && y[i] == "#")) return true
+            if (!hasX || !hasY) return false
+            if (x[i] != "+" && y[i] != "+" && x[i] != y[i]) return false
+            i++
+        }
+    }
+
     /** True if [topic] (a concrete topic name) matches [filter]. */
     fun matches(filter: String, topic: String): Boolean {
         val f = filter.split('/')

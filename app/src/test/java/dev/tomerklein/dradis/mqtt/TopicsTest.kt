@@ -31,4 +31,10 @@ class TopicsTest {
         assertEquals("zanzito/phone/log_inbound", t.logInbound)
         assertEquals("zanzito/phone/log_outbound", t.logOutbound)
     }
+
+    @Test fun outboundTopicsCoverEverythingPublished() {
+        val out = t.outboundTopics()
+        assertTrue("zanzito/phone/status" in out && "zanzito/phone/photo" in out && "zanzito/phone/log_outbound" in out)
+        assertTrue(out.none { it in t.inboundTopics() })
+    }
 }

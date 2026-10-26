@@ -36,4 +36,22 @@ class TopicFilterTest {
         assertFalse(TopicFilter.matches("+/x", "\$SYS/x"))
         assertTrue(TopicFilter.matches("\$SYS/#", "\$SYS/x"))
     }
+
+    @Test fun overlapsDetectsSharedTopics() {
+        assertTrue(TopicFilter.overlaps("a/b", "a/b"))
+        assertTrue(TopicFilter.overlaps("a/+", "a/b"))
+        assertTrue(TopicFilter.overlaps("a/#", "a/b/c"))
+        assertTrue(TopicFilter.overlaps("#", "x/y"))
+        assertTrue(TopicFilter.overlaps("a/#", "a"))
+        assertTrue(TopicFilter.overlaps("+/b", "a/+"))
+        assertTrue(TopicFilter.overlaps("a/b/#", "a/+/c"))
+    }
+
+    @Test fun overlapsRejectsDisjointFilters() {
+        assertFalse(TopicFilter.overlaps("a/b", "a/c"))
+        assertFalse(TopicFilter.overlaps("a/+", "a/b/c"))
+        assertFalse(TopicFilter.overlaps("a/b", "a"))
+        assertFalse(TopicFilter.overlaps("a/#", "b/#"))
+        assertFalse(TopicFilter.overlaps("+/b", "+/c"))
+    }
 }

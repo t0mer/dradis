@@ -9,15 +9,18 @@ object CustomTopicValidator {
     private const val MAX_NAME = 64
     private const val MAX_EXTRACTOR = 200
     private const val MAX_SEPARATOR = 8
+    private val ID_PATTERN = Regex("[A-Za-z0-9_-]{1,64}")
 
     /** Error message for [topic], or null if valid. [others] are the other topics
-     *  in the list; [builtIn] are the app's own inbound topic filters. */
+     *  in the list; [builtIn] are the app's own inbound filters and outbound topics. */
     fun validate(topic: CustomTopic, others: List<CustomTopic>, builtIn: Collection<String>): String? {
-        if (topic.id.isBlank()) return "Missing id"
+        if (!ID_PATTERN.matches(topic.id)) return "Invalid id"
         if (topic.name.isBlank() || topic.name.length > MAX_NAME) return "Name must be 1-$MAX_NAME characters"
         if (!TopicFilter.isValid(topic.filter)) return "Invalid MQTT topic filter"
-        if (topic.filter in builtIn) return "Topic is already used by a built-in command"
-        if (others.any { it.id != topic.id && it.filter == topic.filter }) return "Topic already defined"
+        if (builtIn.any { TopicFilter.overlaps(it, topic.filter) }) return "Topic overlaps one the app uses itself"
+        if (others.any { it.id != topic.id && TopicFilter.overlaps(it.filter, topic.filter) }) {
+            return "Topic overlaps another custom topic"
+        }
         when (topic.type) {
             CustomTopicType.EXTRACTED -> {
                 if (topic.extractor.isBlank() || topic.extractor.length > MAX_EXTRACTOR) {
