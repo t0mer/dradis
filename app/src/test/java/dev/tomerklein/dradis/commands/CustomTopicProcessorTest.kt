@@ -11,10 +11,11 @@ import org.junit.Test
 
 private class FakeEffects(var accept: Boolean = true) : CustomTopicEffects {
     val notified = mutableListOf<Triple<String, String, NotifyIcon>>()
+    val keys = mutableListOf<String>()
     val spoken = mutableListOf<String>()
     val alarms = mutableListOf<Int>()
     val pictures = mutableListOf<ImagePayload.Image>()
-    override fun notify(title: String, text: String, icon: NotifyIcon) { notified += Triple(title, text, icon) }
+    override fun notify(key: String, title: String, text: String, icon: NotifyIcon) { keys += key; notified += Triple(title, text, icon) }
     override fun speak(text: String) { spoken += text }
     override fun alarm(seconds: Int) { alarms += seconds }
     override fun savePicture(image: ImagePayload.Image): Boolean { pictures += image; return accept }
@@ -22,7 +23,8 @@ private class FakeEffects(var accept: Boolean = true) : CustomTopicEffects {
 
 class CustomTopicProcessorTest {
     private val fx = FakeEffects()
-    private val p = CustomTopicProcessor(fx, clock = { 42L })
+    private var now = 42L
+    private val p = CustomTopicProcessor(fx, clock = { now })
     private val logs = mutableListOf<String>()
     private val settings = DradisSettings()
     private val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 1)
@@ -30,8 +32,11 @@ class CustomTopicProcessorTest {
     private fun topic(type: CustomTopicType, f: CustomTopic.() -> CustomTopic = { this }) =
         CustomTopic(id = "id", name = "Door", filter = "home/door", type = type).f()
 
-    private fun run(t: CustomTopic, payload: String, s: DradisSettings = settings) =
+    /** Each call is past the per-topic cooldown of the previous one. */
+    private fun run(t: CustomTopic, payload: String, s: DradisSettings = settings) {
         p.process(t, payload.toByteArray(), s) { logs += it }
+        now += CustomTopicProcessor.COOLDOWN_MS
+    }
 
     @Test fun textRecordsValueAndNotifiesOnlyWhenEnabled() {
         run(topic(CustomTopicType.TEXT), " open ")
@@ -53,7 +58,8 @@ class CustomTopicProcessorTest {
     @Test fun keyValueUsesLabelAsTitle() {
         run(topic(CustomTopicType.KEY_VALUE) { copy(notify = true) }, "temp: 21")
         assertEquals(ReceivedValue("temp", "21", 42L), p.values.value["id"])
-        assertEquals("temp", fx.notified.single().first)
+        // The title is the topic's own name, never payload-controlled text.
+        assertEquals("Door" to "temp: 21", fx.notified.single().let { it.first to it.second })
     }
 
     @Test fun extractedMatchOrNoValue() {
@@ -94,5 +100,40 @@ class CustomTopicProcessorTest {
         run(topic(CustomTopicType.TEXT), "a")
         p.retain(emptySet())
         assertTrue(p.values.value.isEmpty())
+    }
+
+    @Test fun blankPayloadIsIgnoredForEveryType() {
+        for (type in CustomTopicType.values()) {
+            run(topic(type) { copy(id = type.name, notify = true, extractor = "$.a") }, "   ")
+        }
+        p.process(topic(CustomTopicType.ALARM), ByteArray(0), settings) { logs += it }
+        assertTrue(fx.alarms.isEmpty() && fx.notified.isEmpty())
+        assertTrue(p.values.value.isEmpty())
+        assertTrue(logs.all { "empty payload" in it })
+    }
+
+    @Test fun cooldownDropsRapidRepeatsPerTopic() {
+        val t = topic(CustomTopicType.TEXT) { copy(notify = true) }
+        p.process(t, "a".toByteArray(), settings) { logs += it }
+        now += CustomTopicProcessor.COOLDOWN_MS - 1
+        p.process(t, "b".toByteArray(), settings) { logs += it }
+        assertEquals(listOf("a"), fx.notified.map { it.second })
+        p.process(t.copy(id = "other"), "c".toByteArray(), settings) { logs += it }
+        assertEquals(listOf("a", "c"), fx.notified.map { it.second })
+        now += 1
+        p.process(t, "d".toByteArray(), settings) { logs += it }
+        assertEquals(listOf("a", "c", "d"), fx.notified.map { it.second })
+    }
+
+    @Test fun notificationsUseAStableKeyPerTopic() {
+        val t = topic(CustomTopicType.TEXT) { copy(notify = true) }
+        run(t, "a")
+        run(t, "b")
+        assertEquals(listOf("id", "id"), fx.keys)
+    }
+
+    @Test fun zeroAlarmDurationIsIgnored() {
+        run(topic(CustomTopicType.ALARM), "x", settings.copy(alarmDurationSeconds = 0))
+        assertTrue(fx.alarms.isEmpty())
     }
 }
