@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.DrawableRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.tomerklein.dradis.MainActivity
@@ -27,7 +28,13 @@ object Notifier {
 
     /** Post a notification. Returns false if notifications are disabled for the app. */
     @SuppressLint("MissingPermission")
-    fun post(context: Context, title: String, text: String, id: Int = nextId()): Boolean {
+    fun post(
+        context: Context,
+        title: String,
+        text: String,
+        id: Int = nextId(),
+        @DrawableRes icon: Int = R.drawable.ic_launcher_foreground,
+    ): Boolean {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         ensureChannel(context)
         val tapIntent = PendingIntent.getActivity(
@@ -38,7 +45,7 @@ object Notifier {
             .setContentTitle(title.ifBlank { "Dradis" })
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(icon)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(tapIntent)

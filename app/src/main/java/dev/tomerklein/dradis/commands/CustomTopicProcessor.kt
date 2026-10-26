@@ -27,10 +27,9 @@ interface CustomTopicEffects {
  */
 class CustomTopicProcessor(
     private val effects: CustomTopicEffects,
+    private val _values: MutableStateFlow<Map<String, ReceivedValue>> = MutableStateFlow(emptyMap()),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val _values = MutableStateFlow<Map<String, ReceivedValue>>(emptyMap())
-
     /** Latest value per custom-topic id. */
     val values: StateFlow<Map<String, ReceivedValue>> = _values
 
