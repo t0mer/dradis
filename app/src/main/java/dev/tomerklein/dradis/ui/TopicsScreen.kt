@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +42,11 @@ import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.settings.NotifyIcon
 import dev.tomerklein.dradis.settings.TopicsTransfer
+import dev.tomerklein.dradis.ui.MonoStyle
+import dev.tomerklein.dradis.ui.components.ConsoleCard
+import dev.tomerklein.dradis.ui.components.Field
+import dev.tomerklein.dradis.ui.components.MonoText
+import dev.tomerklein.dradis.ui.components.ToggleRow
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -177,20 +179,18 @@ private fun TopicCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(t.name, style = MaterialTheme.typography.titleSmall)
-                    Text("${t.type.name} · ${t.filter}", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(t.enabled, onToggle)
+    ConsoleCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(t.name, style = MaterialTheme.typography.titleSmall)
+                MonoText("${t.type.name} · ${t.filter}", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
-            last?.let { Text("Last: ${it.label?.let { l -> "$l: " } ?: ""}${it.value}", style = MaterialTheme.typography.bodySmall) }
-            Row {
-                TextButton(onClick = onEdit) { Text("Edit") }
-                TextButton(onClick = onDelete) { Text("Delete") }
-            }
+            Switch(t.enabled, onToggle)
+        }
+        last?.let { MonoText("Last: ${it.label?.let { l -> "$l: " } ?: ""}${it.value}") }
+        Row {
+            TextButton(onClick = onEdit) { Text("Edit") }
+            TextButton(onClick = onDelete) { Text("Delete") }
         }
     }
 }
@@ -221,8 +221,8 @@ private fun TopicEditorDialog(
         title = { Text(if (initial == null) "Add custom topic" else "Edit custom topic") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedTextField(name, { name = it.take(64) }, label = { Text("Name") }, singleLine = true)
-                OutlinedTextField(filter, { filter = it.take(256) }, label = { Text("Topic filter (+ and # allowed)") }, singleLine = true)
+                Field("Name", name) { name = it.take(64) }
+                Field("Topic filter (+ and # allowed)", filter, mono = true) { filter = it.take(256) }
                 Text("Type")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CustomTopicType.entries.forEach { opt ->
@@ -230,14 +230,14 @@ private fun TopicEditorDialog(
                     }
                 }
                 if (type == CustomTopicType.EXTRACTED) {
-                    OutlinedTextField(extractor, { extractor = it.take(200) }, label = { Text("JSONPath (\$.a.b) or regex") }, singleLine = true)
+                    Field("JSONPath (\$.a.b) or regex", extractor, mono = true) { extractor = it.take(200) }
                 }
                 if (type == CustomTopicType.KEY_VALUE) {
-                    OutlinedTextField(separator, { separator = it.take(8) }, label = { Text("Separator") }, singleLine = true)
+                    Field("Separator", separator, mono = true) { separator = it.take(8) }
                 }
-                SwitchRow("Enabled", enabled) { enabled = it }
-                SwitchRow("Notify", notify) { notify = it }
-                SwitchRow("Speak", speak) { speak = it }
+                ToggleRow("Enabled", checked = enabled) { enabled = it }
+                ToggleRow("Notify", checked = notify) { notify = it }
+                ToggleRow("Speak", checked = speak) { speak = it }
                 if (notify) {
                     Text("Notification icon")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -267,14 +267,6 @@ private fun TopicEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
-        Switch(checked, onChange)
-    }
 }
 
 /** Reads at most [TopicsTransfer.MAX_FILE_BYTES]; fails instead of buffering a huge file. */

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,11 +11,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.commands.DiscoveredTopic
@@ -37,6 +36,11 @@ import dev.tomerklein.dradis.mqtt.Topics
 import dev.tomerklein.dradis.settings.CustomTopic
 import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
+import dev.tomerklein.dradis.ui.MonoStyle
+import dev.tomerklein.dradis.ui.components.ConsoleCard
+import dev.tomerklein.dradis.ui.components.Field
+import dev.tomerklein.dradis.ui.components.MonoText
+import dev.tomerklein.dradis.ui.components.ToggleRow
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -67,14 +71,11 @@ fun DiscoverScreen(onClose: () -> Unit, modifier: Modifier = Modifier) {
                 "Payloads are shown only as short, redacted previews and are never acted on.",
             style = MaterialTheme.typography.bodySmall,
         )
-        OutlinedTextField(
-            filter, { filter = it }, label = { Text("Topic filter") }, singleLine = true,
-            enabled = session == null, modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            seconds, { seconds = it.filter(Char::isDigit).take(3) }, label = { Text("Seconds (max ${TopicDiscovery.MAX_SECONDS})") },
-            singleLine = true, enabled = session == null, modifier = Modifier.fillMaxWidth(),
-        )
+        Field("Topic filter", filter, enabled = session == null, mono = true) { filter = it }
+        Field(
+            "Seconds (max ${TopicDiscovery.MAX_SECONDS})", seconds, KeyboardType.Number,
+            enabled = session == null, mono = true,
+        ) { seconds = it.filter(Char::isDigit).take(3) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         imported?.let { Text(it) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -92,15 +93,14 @@ fun DiscoverScreen(onClose: () -> Unit, modifier: Modifier = Modifier) {
         Text(if (session != null) "Listening… ${topics.size} topics" else "${topics.size} topics seen")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(topics, key = { it.topic }) { t ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(t.topic, style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "×${t.count} · ${t.lastSize} B${if (t.retained) " · retained" else ""} · ${t.preview}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        TextButton(onClick = { importing = t }) { Text("Import as custom topic") }
-                    }
+                ConsoleCard {
+                    MonoText(t.topic, style = MonoStyle.copy(fontWeight = FontWeight.SemiBold))
+                    MonoText(
+                        "×${t.count} · ${t.lastSize} B${if (t.retained) " · retained" else ""} · ${t.preview}",
+                        style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        maxLines = 4,
+                    )
+                    TextButton(onClick = { importing = t }) { Text("Import as custom topic") }
                 }
             }
         }
@@ -126,17 +126,17 @@ private fun ImportDialog(t: DiscoveredTopic, settings: DradisSettings, onDone: (
         title = { Text("Import as custom topic") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(t.topic, style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(name, { name = it.take(64) }, label = { Text("Name") }, singleLine = true)
+                MonoText(t.topic, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                Field("Name", name) { name = it.take(64) }
                 Text("Type")
                 CustomTopicType.entries.forEach { opt ->
                     FilterChip(selected = type == opt, onClick = { type = opt }, label = { Text(opt.name) })
                 }
                 if (type == CustomTopicType.EXTRACTED) {
-                    OutlinedTextField(extractor, { extractor = it.take(200) }, label = { Text("JSONPath (\$.a.b) or regex") }, singleLine = true)
+                    Field("JSONPath (\$.a.b) or regex", extractor, mono = true) { extractor = it.take(200) }
                 }
-                Row { Text("Notify", Modifier.weight(1f)); Switch(notify, { notify = it }) }
-                Row { Text("Speak", Modifier.weight(1f)); Switch(speak, { speak = it }) }
+                ToggleRow("Notify", checked = notify) { notify = it }
+                ToggleRow("Speak", checked = speak) { speak = it }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

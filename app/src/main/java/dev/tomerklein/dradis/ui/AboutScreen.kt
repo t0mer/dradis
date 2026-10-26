@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,14 +27,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.tomerklein.dradis.BuildConfig
 import dev.tomerklein.dradis.R
+import dev.tomerklein.dradis.ui.ConsolePalette
+import dev.tomerklein.dradis.ui.MonoStyle
+import dev.tomerklein.dradis.ui.components.ConsoleCard
+import dev.tomerklein.dradis.ui.components.MonoText
+import androidx.compose.ui.text.style.TextAlign
 
 private const val REPO_URL = "https://github.com/t0mer/dradis"
 private const val ISSUES_URL = "https://github.com/t0mer/dradis/issues/new"
@@ -72,9 +72,9 @@ fun AboutScreen(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(96.dp)
-                .clip(RoundedCornerShape(22.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(
-                    Brush.linearGradient(listOf(Color(0xFF0F3B41), Color(0xFF081521))),
+                    Brush.linearGradient(listOf(ConsolePalette.dark.primaryContainer, ConsolePalette.dark.background)),
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -84,21 +84,19 @@ fun AboutScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.size(96.dp),
             )
         }
-        Text("Dradis", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+        Text("DRADIS", style = MaterialTheme.typography.titleLarge)
         Text(
             "MQTT phone bridge",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                InfoRow("Version", BuildConfig.DRADIS_VERSION)
-                InfoRow("Release date", BuildConfig.BUILD_DATE)
-                InfoRow("Author", AUTHOR_NAME)
-                InfoRow("Email", AUTHOR_EMAIL, onClick = { email(AUTHOR_EMAIL) })
-                InfoRow("Repository", REPO_URL, onClick = { openUrl(REPO_URL) })
-            }
+        ConsoleCard {
+            InfoRow("Version", BuildConfig.DRADIS_VERSION)
+            InfoRow("Release date", BuildConfig.BUILD_DATE)
+            InfoRow("Author", AUTHOR_NAME, mono = false)
+            InfoRow("Email", AUTHOR_EMAIL, onClick = { email(AUTHOR_EMAIL) })
+            InfoRow("Repository", REPO_URL, onClick = { openUrl(REPO_URL) })
         }
 
         Button(onClick = { openUrl(ISSUES_URL) }, modifier = Modifier.fillMaxWidth()) {
@@ -113,19 +111,16 @@ fun AboutScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun InfoRow(label: String, value: String, onClick: (() -> Unit)? = null) {
+private fun InfoRow(label: String, value: String, mono: Boolean = true, onClick: (() -> Unit)? = null) {
     val base = Modifier.fillMaxWidth()
     Row(
         modifier = if (onClick != null) base.clickable(onClick = onClick) else base,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-        Text(
-            value,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (onClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-        )
+        Text(label, Modifier.fillMaxWidth(0.3f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        val color = if (onClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        if (mono) MonoText(value, Modifier.weight(1f), style = MonoStyle.copy(color = color, textAlign = TextAlign.End))
+        else Text(value, Modifier.weight(1f), color = color, textAlign = TextAlign.End)
     }
 }
