@@ -48,13 +48,27 @@ reconnects automatically as the phone moves between networks.
 
 ## Screenshots
 
-<!-- TODO: screenshot — these predate the Console redesign (new theme, Topics and Gallery tabs, About moved to the top bar); recapture light and dark on a device -->
-
 The app uses a **Console** Material 3 look: dark-first with a green accent, a matching light theme, and monospace for technical data. It follows the phone's light/dark setting.
 
-| Status | Settings | Logs |
+### Dark
+
+| Status | Settings | Logs | Topics |
+|---|---|---|---|
+| ![Status](assets/screenshots/status.png) | ![Settings](assets/screenshots/settings.png) | ![Logs](assets/screenshots/logs.png) | ![Topics](assets/screenshots/topics.png) |
+
+| Gallery | Discover | About |
 |---|---|---|
-| ![Status](assets/screenshots/status.png) | ![Settings](assets/screenshots/settings.png) | ![Logs](assets/screenshots/logs.png) |
+| ![Gallery](assets/screenshots/gallery.png) | ![Discover](assets/screenshots/discover.png) | ![About](assets/screenshots/about.png) |
+
+### Light
+
+| Status | Settings | Logs | Topics |
+|---|---|---|---|
+| ![Status (light)](assets/screenshots/status-light.png) | ![Settings (light)](assets/screenshots/settings-light.png) | ![Logs (light)](assets/screenshots/logs-light.png) | ![Topics (light)](assets/screenshots/topics-light.png) |
+
+| Gallery | Discover | About |
+|---|---|---|
+| ![Gallery (light)](assets/screenshots/gallery-light.png) | ![Discover (light)](assets/screenshots/discover-light.png) | ![About (light)](assets/screenshots/about-light.png) |
 
 - **Status**: live connection state (`CONNECTED` / `CONNECTING` / `DISCONNECTED` /
   `UNAUTHORIZED`), selected broker (LAN/WAN), current SSID / host, a
@@ -67,8 +81,13 @@ The app uses a **Console** Material 3 look: dark-first with a green accent, a ma
   each feature with its own options. Password fields are masked.
 - **Logs**: a live, in‑app mirror of the most recent 200 inbound/outbound MQTT
   messages and service events, independent of `logcat`.
-- **About** (no screenshot): version, release date, author, and links to the
-  GitHub repository and the issue tracker.
+- **Topics**: your custom inbound topics with their type, filter, last value and
+  an on/off switch; add, edit, delete, and import/export as JSON.
+- **Gallery**: pictures received on custom topics of type Picture.
+- **Discover** (search icon in the top bar): listens on a filter for a limited
+  time and lists the topics it sees, each importable as a custom topic.
+- **About** (info icon in the top bar): version, release date, author, and links
+  to the GitHub repository and the issue tracker.
 
 ---
 
