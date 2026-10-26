@@ -75,8 +75,8 @@ jobs:
           git push origin "${{ steps.version.outputs.version }}"
 
       - name: Create GitHub Release
-        # TODO: pin to a commit SHA for the chosen v2.x release (per guidelines).
-        uses: softprops/action-gh-release@v2
+        # Pinned to a commit SHA (v2.6.2) so a moved tag can't change a release step.
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: dist/*.apk
