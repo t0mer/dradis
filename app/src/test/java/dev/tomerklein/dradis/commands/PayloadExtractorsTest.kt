@@ -63,4 +63,9 @@ class PayloadExtractorsTest {
     @Test fun repeatedExtractionUsesTheSamePattern() {
         repeat(3) { assertEquals("1", PayloadExtractors.extract("n=1", "n=(\\d)")) }
     }
+
+    @Test fun deeplyRecursiveRegexNeverThrows() {
+        // Alternation inside a star recurses per iteration in java.util.regex.
+        assertNull(PayloadExtractors.extract("a".repeat(8 * 1024), "(?:a|b)*c"))
+    }
 }

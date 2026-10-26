@@ -1,7 +1,9 @@
 package dev.tomerklein.dradis
 
 import android.content.Context
+import dev.tomerklein.dradis.commands.PictureStore
 import dev.tomerklein.dradis.commands.ReceivedValue
+import dev.tomerklein.dradis.commands.TopicDiscovery
 import dev.tomerklein.dradis.log.MqttLog
 import dev.tomerklein.dradis.mqtt.ConnectionStatus
 import dev.tomerklein.dradis.settings.CustomTopicsRepository
@@ -20,6 +22,11 @@ object ServiceLocator {
         private set
     lateinit var customTopics: CustomTopicsRepository
         private set
+    lateinit var pictures: PictureStore
+        private set
+
+    /** Opt-in broker topic discovery; the service subscribes while a session runs. */
+    val discovery = TopicDiscovery()
 
     /** Latest value per custom-topic id, written by the service, read by the UI. */
     val customTopicValues = MutableStateFlow<Map<String, ReceivedValue>>(emptyMap())
@@ -33,6 +40,7 @@ object ServiceLocator {
         settings = SettingsRepository(app)
         mqttLog = MqttLog()
         customTopics = CustomTopicsRepository(app)
+        pictures = PictureStore(app)
     }
 
     fun updateConnection(status: ConnectionStatus) {

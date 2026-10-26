@@ -68,6 +68,16 @@
                 android:value="Maintains a persistent MQTT control link so the device can be reached remotely (SMS, location, find-my-phone, camera) at any time." />
         </service>
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.gallery"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/gallery_paths" />
+        </provider>
+
         <receiver
             android:name=".boot.BootReceiver"
             android:enabled="true"

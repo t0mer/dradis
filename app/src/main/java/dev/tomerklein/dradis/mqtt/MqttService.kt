@@ -28,7 +28,6 @@ import dev.tomerklein.dradis.commands.GetStatusHandler
 import dev.tomerklein.dradis.commands.LocationHandler
 import dev.tomerklein.dradis.commands.NotifyHandler
 import dev.tomerklein.dradis.commands.PhotoHandler
-import dev.tomerklein.dradis.commands.PictureStore
 import dev.tomerklein.dradis.commands.PingHandler
 import dev.tomerklein.dradis.commands.SayHandler
 import dev.tomerklein.dradis.commands.SmsHandler
@@ -49,6 +48,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Semaphore
@@ -98,6 +98,13 @@ class MqttService : LifecycleService(), CommandSink {
     private var subscribedCustom: Set<String> = emptySet()
     private val customLock = Any()
     private val pictureGate = Semaphore(1)
+    private val dupGuard = DuplicateGuard()
+    // Topics we published on recently (HA discovery etc.), so discovery never lists our own echoes.
+    private val ownPublished: MutableSet<String> = java.util.Collections.newSetFromMap(
+        java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Boolean>() {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 500
+        }),
+    )
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
@@ -135,6 +142,7 @@ class MqttService : LifecycleService(), CommandSink {
         get() = ::networkMonitor.isInitialized && networkMonitor.isWifi()
 
     override fun publish(topic: String, payload: String, retain: Boolean) {
+        ownPublished += topic
         client?.publish(topic, payload, retain)
         // Cap what the in-app buffer keeps: a base64 photo would otherwise sit
         // in memory (and in log dumps) at full size.
@@ -142,6 +150,7 @@ class MqttService : LifecycleService(), CommandSink {
     }
 
     override fun publish(topic: String, payload: ByteArray, retain: Boolean) {
+        ownPublished += topic
         client?.publish(topic, payload, retain = retain)
         mqttLog.outbound(topic, "<${payload.size} bytes>", now())
     }
@@ -202,7 +211,7 @@ class MqttService : LifecycleService(), CommandSink {
                 context = this,
                 tts = ttsSpeaker,
                 settings = { current },
-                pictures = PictureStore(this),
+                pictures = ServiceLocator.pictures,
                 log = ::logInfo,
             ),
             _values = ServiceLocator.customTopicValues,
@@ -237,6 +246,7 @@ class MqttService : LifecycleService(), CommandSink {
         nudgeSsidResolution()
 
         connScope.launch { settingsRepo.migrate() }
+        connScope.launch { runDiscoverySessions() }
         connScope.launch {
             ServiceLocator.customTopics.topics.collect { list ->
                 customTopics = list
@@ -285,6 +295,7 @@ class MqttService : LifecycleService(), CommandSink {
         telemetryReporter.stop()
         sensorReporter.stop()
         ttsSpeaker.shutdown()
+        ServiceLocator.discovery.stop()
         client?.disconnect()
         client = null
         connectionLocks.release()
@@ -427,6 +438,18 @@ class MqttService : LifecycleService(), CommandSink {
     }
 
     private fun onInbound(topic: String, bytes: ByteArray, retained: Boolean) {
+        val discovery = ServiceLocator.discovery
+        // Anything the app does not itself handle can only arrive through a discovery
+        // subscription (possibly still draining after the session ended). It is recorded
+        // while a session runs and otherwise dropped: never routed, never logged.
+        if (!handledByApp(topic)) {
+            val own = topic in currentTopics.outboundTopics() || topic in ownPublished
+            if (!own && discovery.isActive) discovery.record(topic, bytes, retained)
+            return
+        }
+        // A discovery subscription overlaps the app's own, so the broker may deliver
+        // the same publish twice; a command must not run twice.
+        if (discovery.isActive && dupGuard.isDuplicate(topic, bytes)) return
         // Commands are events, not state. Ignore retained messages delivered from
         // the broker's store on (re)subscribe so a leftover/retained command never
         // re-fires (e.g. a retained-clear or an accidentally retained publish).
@@ -440,6 +463,36 @@ class MqttService : LifecycleService(), CommandSink {
         // length-capped so PII (phone numbers, SMS text) isn't retained verbatim.
         mqttLog.inbound(redactPii(topic), redactPii(text).take(MAX_LOGGED_PAYLOAD), now())
         ioScope.launch { router.handle(topic, text) }
+    }
+
+    private fun handledByApp(topic: String): Boolean =
+        currentTopics.inboundTopics().any { TopicFilter.matches(it, topic) } ||
+            activeCustomTopics().any { TopicFilter.matches(it.filter, topic) }
+
+    /** Subscribes to each discovery session's filter and ends it at its deadline, on
+     *  disconnect, or when the UI stops it. Sessions never outlive the connection. */
+    private suspend fun runDiscoverySessions() {
+        ServiceLocator.discovery.session.collectLatest { s ->
+            if (s == null) return@collectLatest
+            val c = client?.takeIf { it.isConnected }
+            if (c == null) {
+                ServiceLocator.discovery.stop()
+                return@collectLatest
+            }
+            // Never touch a subscription the app already owns under the same filter.
+            val owned = s.filter in currentTopics.inboundTopics() || s.filter in synchronized(customLock) { subscribedCustom }
+            if (!owned) c.subscribe(listOf(s.filter))
+            logInfo("Discovery started on ${redactPii(s.filter)}")
+            try {
+                delay((s.deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0))
+                ServiceLocator.discovery.stop()
+            } finally {
+                // Re-check: a custom topic imported mid-session may now own this filter.
+                val ownedNow = s.filter in currentTopics.inboundTopics() ||
+                    s.filter in synchronized(customLock) { subscribedCustom }
+                if (!owned && !ownedNow) client?.unsubscribe(listOf(s.filter))
+            }
+        }
     }
 
     /** Enabled custom topics that are safe to subscribe: a filter overlapping a
@@ -510,6 +563,8 @@ class MqttService : LifecycleService(), CommandSink {
 
     // --- Notification + status ----------------------------------------------
     private fun updateStatus(state: ConnState, sel: BrokerSelector.Selection?, detail: String) {
+        // Sessions are clean-session subscriptions: they do not survive a reconnect.
+        if (state != ConnState.CONNECTED) ServiceLocator.discovery.stop()
         val status = ConnectionStatus(
             state = state,
             broker = sel?.kind ?: BrokerKind.NONE,

@@ -35,6 +35,9 @@ object ImagePayload {
         return sniff(raw)
     }
 
+    /** True if [b] starts with a JPEG or PNG signature (cheap; no decoding). */
+    fun looksLikeImage(b: ByteArray): Boolean = sniff(b) != null
+
     private fun sniff(b: ByteArray): Image? {
         if (b.size < 4 || b.size > MAX_IMAGE_BYTES) return null
         fun at(i: Int) = b[i].toInt() and 0xFF
