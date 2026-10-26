@@ -411,6 +411,23 @@ Rules worth knowing:
 ] }
 ```
 
+### Outbound topics (publish a device value)
+
+Under **Publish** on the Topics tab you can make the phone publish one device value to a topic of your choice,
+on connect, whenever the list changes and on every update interval.
+
+| Value | Payload | Gated by |
+|---|---|---|
+| Battery level | `87` | Telemetry switch |
+| Charging | `true` / `false` | Telemetry switch |
+| Wi‑Fi SSID | the SSID, or `none` when not on Wi‑Fi (never an empty payload, which would clear a retained topic) | Telemetry switch |
+| Location | the same JSON as the `location` topic (`latitude`, `longitude`, `gps_accuracy`, `time`); nothing is sent without a fix | Location switch and permission |
+
+Each entry can be *retained* and enabled or disabled. A published topic cannot contain `+` or `#`, cannot start
+with `$`, cannot be a topic the app uses itself, and cannot be covered by one of your inbound custom filters
+(and an inbound filter cannot cover an outbound topic): that would echo the value back into the app. Up to 50
+entries. They are part of the JSON export/import (imported entries start disabled).
+
 The list is stored encrypted on the device; it is not included in backups (`allowBackup="false"`).
 
 ---
