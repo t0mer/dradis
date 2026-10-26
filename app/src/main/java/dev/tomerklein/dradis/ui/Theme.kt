@@ -1,43 +1,73 @@
 package dev.tomerklein.dradis.ui
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-private val DradisGreen = Color(0xFF1F8F63)
-private val DradisGreenLight = Color(0xFF36F1A0)
-
-private val DarkColors = darkColorScheme(
-    primary = DradisGreenLight,
-    secondary = DradisGreen,
+private fun PaletteColors.darkScheme(): ColorScheme = darkColorScheme(
+    inversePrimary = ConsolePalette.light.primary,
+    primary = primary, onPrimary = onPrimary, primaryContainer = primaryContainer, onPrimaryContainer = onPrimaryContainer,
+    secondary = primary, onSecondary = onPrimary, secondaryContainer = primaryContainer, onSecondaryContainer = onPrimaryContainer,
+    background = background, onBackground = text, surface = surface, onSurface = text,
+    surfaceVariant = surfaceHigh, onSurfaceVariant = textSecondary, surfaceTint = primary,
+    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surfaceHigh,
+    surfaceContainerHighest = surfaceHigh, surfaceContainerLowest = background,
+    outline = outline, outlineVariant = outlineVariant,
+    tertiary = primary, onTertiary = onPrimary, tertiaryContainer = primaryContainer, onTertiaryContainer = onPrimaryContainer,
+    inverseSurface = text, inverseOnSurface = background,
+    error = error, onError = onError, errorContainer = errorContainer, onErrorContainer = onErrorContainer,
 )
-private val LightColors = lightColorScheme(
-    primary = DradisGreen,
-    secondary = DradisGreenLight,
+
+private fun PaletteColors.lightScheme(): ColorScheme = lightColorScheme(
+    inversePrimary = ConsolePalette.dark.primary,
+    primary = primary, onPrimary = onPrimary, primaryContainer = primaryContainer, onPrimaryContainer = onPrimaryContainer,
+    secondary = primary, onSecondary = onPrimary, secondaryContainer = primaryContainer, onSecondaryContainer = onPrimaryContainer,
+    background = background, onBackground = text, surface = surface, onSurface = text,
+    surfaceVariant = surfaceHigh, onSurfaceVariant = textSecondary, surfaceTint = primary,
+    surfaceContainer = surface, surfaceContainerLow = background, surfaceContainerHigh = surfaceHigh,
+    surfaceContainerHighest = surfaceHigh, surfaceContainerLowest = background,
+    outline = outline, outlineVariant = outlineVariant,
+    tertiary = primary, onTertiary = onPrimary, tertiaryContainer = primaryContainer, onTertiaryContainer = onPrimaryContainer,
+    inverseSurface = text, inverseOnSurface = background,
+    error = error, onError = onError, errorContainer = errorContainer, onErrorContainer = onErrorContainer,
 )
 
-/** App-wide Material 3 theme. Honours the system light/dark preference and
- *  uses dynamic colour on Android 12+ when available. */
+private val ConsoleShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(16.dp),
+)
+
+private val base = Typography()
+private val ConsoleTypography = base.copy(
+    titleLarge = base.titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp),
+    titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+    labelLarge = base.labelLarge.copy(fontWeight = FontWeight.Medium),
+)
+
+/** App-wide Material 3 theme: the fixed Console palette, following the system light/dark setting.
+ *  Dynamic (wallpaper) colour is intentionally not used. */
 @Composable
 fun DradisTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> DarkColors
-        else -> LightColors
+    val palette = if (darkTheme) ConsolePalette.dark else ConsolePalette.light
+    val scheme = if (darkTheme) palette.darkScheme() else palette.lightScheme()
+    CompositionLocalProvider(LocalExtendedColors provides palette.toExtended()) {
+        MaterialTheme(colorScheme = scheme, shapes = ConsoleShapes, typography = ConsoleTypography, content = content)
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
 }
