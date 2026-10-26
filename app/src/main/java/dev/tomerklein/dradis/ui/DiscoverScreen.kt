@@ -38,6 +38,7 @@ import dev.tomerklein.dradis.settings.CustomTopic
 import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -148,8 +149,14 @@ private fun ImportDialog(t: DiscoveredTopic, settings: DradisSettings, onDone: (
                         id = UUID.randomUUID().toString(), name = name.trim(), filter = t.topic, type = type,
                         notify = notify, speak = speak, extractor = extractor.trim(),
                     )
-                    val err = repo.save(repo.topics.first() + topic, builtIn)
-                    if (err == null) onDone("Imported \"${topic.name}\"") else error = err
+                    try {
+                        val err = repo.save(repo.topics.first() + topic, builtIn)
+                        if (err == null) onDone("Imported \"${topic.name}\"") else error = err
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error = "Could not save: ${e.message ?: e.javaClass.simpleName}"
+                    }
                 }
             }) { Text("Import") }
         },

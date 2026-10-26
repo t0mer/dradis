@@ -70,7 +70,7 @@ class TopicDiscovery(private val clock: () -> Long = System::currentTimeMillis) 
                 lastSize = bytes.size,
                 preview = preview(bytes),
                 retained = retained,
-                suggested = suggest(bytes),
+                suggested = prev?.suggested ?: suggest(bytes),
             )
             _topics.value = seen.values.sortedByDescending { it.lastSeenMillis }
         }

@@ -99,6 +99,12 @@ class MqttService : LifecycleService(), CommandSink {
     private val customLock = Any()
     private val pictureGate = Semaphore(1)
     private val dupGuard = DuplicateGuard()
+    // Topics we published on recently (HA discovery etc.), so discovery never lists our own echoes.
+    private val ownPublished: MutableSet<String> = java.util.Collections.newSetFromMap(
+        java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Boolean>() {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 500
+        }),
+    )
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
@@ -136,6 +142,7 @@ class MqttService : LifecycleService(), CommandSink {
         get() = ::networkMonitor.isInitialized && networkMonitor.isWifi()
 
     override fun publish(topic: String, payload: String, retain: Boolean) {
+        ownPublished += topic
         client?.publish(topic, payload, retain)
         // Cap what the in-app buffer keeps: a base64 photo would otherwise sit
         // in memory (and in log dumps) at full size.
@@ -143,6 +150,7 @@ class MqttService : LifecycleService(), CommandSink {
     }
 
     override fun publish(topic: String, payload: ByteArray, retain: Boolean) {
+        ownPublished += topic
         client?.publish(topic, payload, retain = retain)
         mqttLog.outbound(topic, "<${payload.size} bytes>", now())
     }
@@ -287,6 +295,7 @@ class MqttService : LifecycleService(), CommandSink {
         telemetryReporter.stop()
         sensorReporter.stop()
         ttsSpeaker.shutdown()
+        ServiceLocator.discovery.stop()
         client?.disconnect()
         client = null
         connectionLocks.release()
@@ -430,16 +439,17 @@ class MqttService : LifecycleService(), CommandSink {
 
     private fun onInbound(topic: String, bytes: ByteArray, retained: Boolean) {
         val discovery = ServiceLocator.discovery
-        if (discovery.isActive) {
-            // The discovery subscription overlaps everything, so the broker echoes our own
-            // telemetry and may deliver app-handled topics twice. Neither may reach a handler.
-            if (topic in currentTopics.outboundTopics()) return
-            if (!handledByApp(topic)) {
-                discovery.record(topic, bytes, retained)
-                return
-            }
-            if (dupGuard.isDuplicate(topic, bytes)) return
+        // Anything the app does not itself handle can only arrive through a discovery
+        // subscription (possibly still draining after the session ended). It is recorded
+        // while a session runs and otherwise dropped: never routed, never logged.
+        if (!handledByApp(topic)) {
+            val own = topic in currentTopics.outboundTopics() || topic in ownPublished
+            if (!own && discovery.isActive) discovery.record(topic, bytes, retained)
+            return
         }
+        // A discovery subscription overlaps the app's own, so the broker may deliver
+        // the same publish twice; a command must not run twice.
+        if (discovery.isActive && dupGuard.isDuplicate(topic, bytes)) return
         // Commands are events, not state. Ignore retained messages delivered from
         // the broker's store on (re)subscribe so a leftover/retained command never
         // re-fires (e.g. a retained-clear or an accidentally retained publish).
@@ -477,7 +487,10 @@ class MqttService : LifecycleService(), CommandSink {
                 delay((s.deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0))
                 ServiceLocator.discovery.stop()
             } finally {
-                if (!owned) client?.unsubscribe(listOf(s.filter))
+                // Re-check: a custom topic imported mid-session may now own this filter.
+                val ownedNow = s.filter in currentTopics.inboundTopics() ||
+                    s.filter in synchronized(customLock) { subscribedCustom }
+                if (!owned && !ownedNow) client?.unsubscribe(listOf(s.filter))
             }
         }
     }

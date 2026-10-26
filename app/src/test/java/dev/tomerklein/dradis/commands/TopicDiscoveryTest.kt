@@ -90,4 +90,21 @@ class TopicDiscoveryTest {
         assertFalse(g.isDuplicate("a", byteArrayOf(1)))
         assertFalse(g.isDuplicate("a", byteArrayOf(2)))
     }
+
+    @Test fun duplicateGuardCatchesInterleavedDuplicates() {
+        var t = 0L
+        val g = DuplicateGuard(250) { t }
+        assertFalse(g.isDuplicate("a", byteArrayOf(1)))
+        t = 10
+        assertFalse(g.isDuplicate("b", byteArrayOf(1)))
+        t = 20
+        assertTrue(g.isDuplicate("a", byteArrayOf(1)))
+    }
+
+    @Test fun suggestionIsKeptFromFirstSighting() {
+        d.start("#", 60)
+        d.record("a", "{\"t\":1}".toByteArray(), false)
+        d.record("a", "plain".toByteArray(), false)
+        assertEquals(CustomTopicType.EXTRACTED, d.topics.value.single().suggested)
+    }
 }
