@@ -385,9 +385,9 @@ allowed), a type, and flags: *enabled*, *notify*, *speak* and a notification ico
 |---|---|
 | **Text** | Stores the payload as the topic's last value; optionally notifies/speaks it. |
 | **Alarm** | Any non‑empty message rings the find‑phone alarm for the duration set in Settings (ignored if the alarm is disabled or the duration is 0). The payload is not interpreted. |
-| **Picture** | Payload is a raw JPEG/PNG, base64, or `{"jpeg_b64":"…"}` (≤ 5 MB). Saved to the **Gallery** and notified. |
+| **Picture** | Payload is a raw JPEG/PNG, base64, or `{"jpeg_b64":"…"}` (≤ 5 MB). Saved to the **Gallery**; notified only if *notify* is on. |
 | **Key/Value** | Splits the payload at the first separator (default `:`) into `label` and `value`. |
-| **Extracted** | Pulls one value out of the payload with a JSONPath subset (`$.a.b[0]`, `$['key']`) or a regex (group 1, else the whole match). |
+| **Extracted** | Pulls one value out of the payload with a JSONPath subset (`$.a.b[0]`, `$['key']`) or a regex (group 1 if the pattern has one, else the whole match). |
 
 Rules worth knowing:
 
@@ -400,7 +400,7 @@ Rules worth knowing:
 - **Discover** (search icon in the top bar) listens on a filter for a limited time and can import a seen
   topic as a custom topic.
 - **Export** writes all topics to a JSON file; **Import** appends the topics of such a file (a bare JSON
-  array also works). Imported topics get new ids and the whole file is rejected if any entry is invalid or
+  array also works). Imported topics get new ids and arrive **disabled** (switch them on after checking them), and the whole file is rejected if any entry is invalid or
   collides with an existing topic. Files over 256 KB are refused.
 
 ```json
