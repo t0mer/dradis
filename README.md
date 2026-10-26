@@ -309,6 +309,7 @@ defaults.
 | Push notification | `<prefix>/<device>/notify` | `{"title":"…","text":"…","id"?:N}` or raw text (title defaults to `Dradis`; reusing an `id` replaces that notification) |
 | Text‑to‑speech | `<prefix>/<device>/say` | `{"text":"…"}` or raw text |
 | Force telemetry | `<prefix>/<device>/getstatus` | any (e.g. empty); publishes `battery`, `wifi`, `device_info` and `sensors` (sensors only if Sensors is enabled) |
+| Control verbs | `<prefix>/<device>/cmd/<verb>` | `{}` (a blank payload is ignored). Verbs: `restart`, `reconnect`, `take_picture` (same payload as `takephoto`), `send_heartbeat`, `set_bookmark`, `send_logs`, `send_html_logs`, `stop_alarm`. Unknown verbs are logged and ignored. `restart` and `reconnect` share a 10 s cooldown. `set_bookmark` needs Location enabled and currently only records the fix in the in‑app log |
 
 Each command is ignored (with a note in the in‑app log) when its feature is
 disabled in Settings.
@@ -326,6 +327,7 @@ disabled in Settings.
 | Location | `<prefix>/<device>/location` | `{latitude, longitude, gps_accuracy, time}` | — |
 | Photo | `<prefix>/<device>/photo` | `{camera, time, jpeg_b64}` | — |
 | SMS result | `<prefix>/<device>/sendsms/result` | `{phone, ok, error?}` | — |
+| Log dumps | `<prefix>/<device>/log_inbound`, `<prefix>/<device>/log_outbound` | text (`send_logs`) or an HTML table (`send_html_logs`) of recent inbound / outbound messages; sent on request only | — |
 
 All `time` fields are Unix epoch **seconds**.
 
@@ -447,6 +449,12 @@ discovery configs (empty retained payloads).
   (`allowBackup="false"`).
 - The in‑app log masks phone‑number‑like digit runs in inbound topics/payloads and
   truncates inbound payloads to 300 characters.
+- `send_logs` / `send_html_logs` leave the device, so each dumped entry is
+  redacted (digit runs of 7+ are masked), flattened to one line and truncated to
+  300 characters. Anyone who can subscribe to the log topics can still read this
+  activity; restrict them with ACLs.
+- `cmd/<verb>` (restart, reconnect, stop_alarm, send_logs, …) has no per‑sender
+  check: the broker's authentication and ACLs are the only access control.
 - Keystores and `keystore.properties` are git‑ignored.
 
 ---
