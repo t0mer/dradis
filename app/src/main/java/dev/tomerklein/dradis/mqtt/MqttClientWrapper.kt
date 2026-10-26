@@ -122,6 +122,18 @@ class MqttClientWrapper(
         }
     }
 
+    fun unsubscribe(topics: List<String>) {
+        val c = client ?: return
+        topics.forEach { topic ->
+            c.unsubscribeWith()
+                .topicFilter(topic)
+                .send()
+                .whenComplete { _, err ->
+                    if (err != null) Log.e(TAG, "unsubscribe $topic failed", err)
+                }
+        }
+    }
+
     fun publish(
         topic: String,
         payload: ByteArray,
