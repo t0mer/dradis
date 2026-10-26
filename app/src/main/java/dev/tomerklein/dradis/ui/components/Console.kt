@@ -58,7 +58,10 @@ fun StateChip(label: String, state: ChipState, modifier: Modifier = Modifier) {
         ChipState.WARNING -> ext.warning
         ChipState.ERROR -> scheme.error
     }
-    Surface(color = fill, contentColor = content, shape = CircleShape, modifier = modifier) {
+    Surface(
+        color = fill, contentColor = content, shape = CircleShape, modifier = modifier,
+        border = BorderStroke(1.dp, dot.copy(alpha = 0.6f)),
+    ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).background(dot, CircleShape))
             Text(label, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelMedium)
@@ -119,8 +122,8 @@ fun KeyValueRow(label: String, value: String, mono: Boolean = true) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val end = TextAlign.End
-        if (mono) MonoText(value, Modifier.weight(1f), style = MonoStyle.copy(textAlign = end), maxLines = 6)
-        else Text(value, Modifier.weight(1f), textAlign = end, maxLines = 6, overflow = TextOverflow.Ellipsis)
+        if (mono) MonoText(value, Modifier.weight(1f), style = MonoStyle.copy(textAlign = end), maxLines = Int.MAX_VALUE)
+        else Text(value, Modifier.weight(1f), textAlign = end)
     }
 }
 

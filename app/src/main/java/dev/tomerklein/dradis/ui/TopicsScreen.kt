@@ -187,7 +187,7 @@ private fun TopicCard(
             }
             Switch(t.enabled, onToggle)
         }
-        last?.let { MonoText("Last: ${it.label?.let { l -> "$l: " } ?: ""}${it.value}", maxLines = 4) }
+        last?.let { MonoText("Last: ${it.label?.let { l -> "$l: " } ?: ""}${it.value}") }
         Row {
             TextButton(onClick = onEdit) { Text("Edit") }
             TextButton(onClick = onDelete) { Text("Delete") }
