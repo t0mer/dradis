@@ -48,6 +48,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Semaphore
@@ -97,6 +98,7 @@ class MqttService : LifecycleService(), CommandSink {
     private var subscribedCustom: Set<String> = emptySet()
     private val customLock = Any()
     private val pictureGate = Semaphore(1)
+    private val dupGuard = DuplicateGuard()
     private val hassDiscovery = HassDiscovery(this)
     private var reselectJob: Job? = null
     private var ssidRetryJob: Job? = null
@@ -236,6 +238,7 @@ class MqttService : LifecycleService(), CommandSink {
         nudgeSsidResolution()
 
         connScope.launch { settingsRepo.migrate() }
+        connScope.launch { runDiscoverySessions() }
         connScope.launch {
             ServiceLocator.customTopics.topics.collect { list ->
                 customTopics = list
@@ -426,6 +429,17 @@ class MqttService : LifecycleService(), CommandSink {
     }
 
     private fun onInbound(topic: String, bytes: ByteArray, retained: Boolean) {
+        val discovery = ServiceLocator.discovery
+        if (discovery.isActive) {
+            // The discovery subscription overlaps everything, so the broker echoes our own
+            // telemetry and may deliver app-handled topics twice. Neither may reach a handler.
+            if (topic in currentTopics.outboundTopics()) return
+            if (!handledByApp(topic)) {
+                discovery.record(topic, bytes, retained)
+                return
+            }
+            if (dupGuard.isDuplicate(topic, bytes)) return
+        }
         // Commands are events, not state. Ignore retained messages delivered from
         // the broker's store on (re)subscribe so a leftover/retained command never
         // re-fires (e.g. a retained-clear or an accidentally retained publish).
@@ -439,6 +453,33 @@ class MqttService : LifecycleService(), CommandSink {
         // length-capped so PII (phone numbers, SMS text) isn't retained verbatim.
         mqttLog.inbound(redactPii(topic), redactPii(text).take(MAX_LOGGED_PAYLOAD), now())
         ioScope.launch { router.handle(topic, text) }
+    }
+
+    private fun handledByApp(topic: String): Boolean =
+        currentTopics.inboundTopics().any { TopicFilter.matches(it, topic) } ||
+            activeCustomTopics().any { TopicFilter.matches(it.filter, topic) }
+
+    /** Subscribes to each discovery session's filter and ends it at its deadline, on
+     *  disconnect, or when the UI stops it. Sessions never outlive the connection. */
+    private suspend fun runDiscoverySessions() {
+        ServiceLocator.discovery.session.collectLatest { s ->
+            if (s == null) return@collectLatest
+            val c = client?.takeIf { it.isConnected }
+            if (c == null) {
+                ServiceLocator.discovery.stop()
+                return@collectLatest
+            }
+            // Never touch a subscription the app already owns under the same filter.
+            val owned = s.filter in currentTopics.inboundTopics() || s.filter in synchronized(customLock) { subscribedCustom }
+            if (!owned) c.subscribe(listOf(s.filter))
+            logInfo("Discovery started on ${redactPii(s.filter)}")
+            try {
+                delay((s.deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0))
+                ServiceLocator.discovery.stop()
+            } finally {
+                if (!owned) client?.unsubscribe(listOf(s.filter))
+            }
+        }
     }
 
     /** Enabled custom topics that are safe to subscribe: a filter overlapping a
@@ -509,6 +550,8 @@ class MqttService : LifecycleService(), CommandSink {
 
     // --- Notification + status ----------------------------------------------
     private fun updateStatus(state: ConnState, sel: BrokerSelector.Selection?, detail: String) {
+        // Sessions are clean-session subscriptions: they do not survive a reconnect.
+        if (state != ConnState.CONNECTED) ServiceLocator.discovery.stop()
         val status = ConnectionStatus(
             state = state,
             broker = sel?.kind ?: BrokerKind.NONE,
