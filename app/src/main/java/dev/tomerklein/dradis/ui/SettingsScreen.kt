@@ -14,14 +14,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,16 +30,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.tomerklein.dradis.ServiceLocator
 import dev.tomerklein.dradis.mqtt.Topics
 import dev.tomerklein.dradis.settings.BrokerConfig
 import dev.tomerklein.dradis.settings.DradisSettings
+import dev.tomerklein.dradis.ui.components.ConsoleCard
+import dev.tomerklein.dradis.ui.components.Field
+import dev.tomerklein.dradis.ui.components.SectionHeader
+import dev.tomerklein.dradis.ui.components.ToggleRow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -128,14 +124,14 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         SectionHeader("Basic")
         SettingsCard("Device") {
             Field("Device name", deviceName) { deviceName = it }
-            Field("Topic prefix", prefix) { prefix = it }
+            Field("Topic prefix", prefix, mono = true) { prefix = it }
         }
 
         SettingsCard("LAN broker (home Wi-Fi)") {
-            Field("Home Wi-Fi SSIDs (comma-separated)", homeSsids) { homeSsids = it }
-            Field("Host", lanHost) { lanHost = it }
-            Field("Port", lanPort, KeyboardType.Number) { lanPort = it }
-            Field("Username", lanUser) { lanUser = it }
+            Field("Home Wi-Fi SSIDs (comma-separated)", homeSsids, mono = true) { homeSsids = it }
+            Field("Host", lanHost, mono = true) { lanHost = it }
+            Field("Port", lanPort, KeyboardType.Number, mono = true) { lanPort = it }
+            Field("Username", lanUser, mono = true) { lanUser = it }
             Field("Password", lanPass, KeyboardType.Password, password = true) { lanPass = it }
             ToggleRow("Use TLS", checked = lanTls) {
                 lanTls = it
@@ -151,9 +147,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
 
         SettingsCard("WAN broker (mobile / away)") {
-            Field("Host", wanHost) { wanHost = it }
-            Field("Port", wanPort, KeyboardType.Number) { wanPort = it }
-            Field("Username", wanUser) { wanUser = it }
+            Field("Host", wanHost, mono = true) { wanHost = it }
+            Field("Port", wanPort, KeyboardType.Number, mono = true) { wanPort = it }
+            Field("Username", wanUser, mono = true) { wanUser = it }
             Field("Password", wanPass, KeyboardType.Password, password = true) { wanPass = it }
             ToggleRow("Use TLS", checked = wanTls) {
                 wanTls = it
@@ -254,7 +250,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         SectionHeader("Integrations")
         SettingsCard("Home Assistant") {
             ToggleRow("MQTT discovery", "auto-create the device + entities in HA", hassEnabled) { hassEnabled = it }
-            Field("Discovery prefix", hassPrefix, enabled = hassEnabled) { hassPrefix = it }
+            Field("Discovery prefix", hassPrefix, enabled = hassEnabled, mono = true) { hassPrefix = it }
         }
 
         SectionHeader("Behaviour")
@@ -340,7 +336,7 @@ private fun RingtoneRow(title: String, enabled: Boolean, onPick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text("Ringtone")
-            Text(title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         OutlinedButton(onClick = onPick, enabled = enabled) { Text("Choose") }
     }
@@ -357,7 +353,7 @@ private fun CertRow(loaded: Boolean, onPick: () -> Unit, onClear: () -> Unit) {
             Text("CA certificate")
             Text(
                 if (loaded) "Loaded" else "none — uses system CAs",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -375,70 +371,9 @@ private fun syncTlsPort(current: String, tls: Boolean): String = when {
 }
 
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text.uppercase(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
-    )
-}
-
-@Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, fontWeight = FontWeight.Bold)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    password: Boolean = false,
-    enabled: Boolean = true,
-    onChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-    )
-}
-
-@Composable
-private fun ToggleRow(
-    label: String,
-    subtitle: String? = null,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label)
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+    ConsoleCard {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        content()
     }
 }
