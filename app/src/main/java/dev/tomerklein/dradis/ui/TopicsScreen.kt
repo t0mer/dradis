@@ -91,7 +91,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
     }
 
     suspend fun updateOut(change: (List<OutboundTopic>) -> List<OutboundTopic>): String? = try {
-        repo.updateOutbound(builtIn, change)
+        repo.updateOutbound(builtIn, "${settings.topicPrefix}/", change)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -115,8 +115,8 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
                 val text = withContext(Dispatchers.IO) { readBounded(context, uri) }
                 var result: TopicsTransfer.Result? = null
                 val err = withContext(Dispatchers.Default) {
-                    repo.updateBoth(builtIn) { cur, curOut ->
-                        when (val r = TopicsTransfer.import(text, cur, builtIn, curOut)) {
+                    repo.updateBoth(builtIn, "${settings.topicPrefix}/") { cur, curOut ->
+                        when (val r = TopicsTransfer.import(text, cur, builtIn, curOut, "${settings.topicPrefix}/")) {
                             is TopicsTransfer.Result.Ok -> { result = r; r.merged to r.mergedOutbound }
                             is TopicsTransfer.Result.Error -> { result = r; cur to curOut }
                         }
@@ -142,7 +142,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
             OutlinedButton(enabled = topics.isNotEmpty() || outbound.isNotEmpty(), onClick = { exporter.launch("dradis-topics.json") }) { Text("Export") }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        if (topics.isEmpty()) {
+        if (topics.isEmpty() && outbound.isEmpty()) {
             Text("No custom topics yet. Add one, import a file, or use Discover (search icon) to pick from live traffic.")
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -209,6 +209,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { deletingOut = null },
             title = { Text("Stop publishing to \"${t.topic}\"?") },
+            text = { Text("A retained value already on the broker stays there until you clear it.") },
             confirmButton = {
                 TextButton(onClick = {
                     deletingOut = null

@@ -424,7 +424,7 @@ on connect, whenever the list changes and on every update interval.
 | Location | the same JSON as the `location` topic (`latitude`, `longitude`, `gps_accuracy`, `time`); nothing is sent without a fix | Location switch and permission |
 
 Each entry can be *retained* and enabled or disabled. A published topic cannot contain `+` or `#`, cannot start
-with `$`, cannot be a topic the app uses itself, and cannot be covered by one of your inbound custom filters
+with `$`, cannot be under your topic prefix (that namespace belongs to dradis devices) or a topic the app uses itself, and cannot be covered by one of your inbound custom filters
 (and an inbound filter cannot cover an outbound topic): that would echo the value back into the app. Up to 50
 entries. They are part of the JSON export/import (imported entries start disabled).
 
