@@ -20,6 +20,7 @@ class TopicsTransferTest {
         assertEquals(listOf("x/a", "x/b"), r.merged.map { it.filter })
         assertEquals(CustomTopicType.EXTRACTED, r.merged[1].type)
         assertTrue(r.merged.none { it.id == "a" || it.id == "b" })
+        assertTrue("imports start disabled", r.merged.none { it.enabled })
     }
 
     @Test fun importIsAppendedAndNeverOverwritesExisting() {

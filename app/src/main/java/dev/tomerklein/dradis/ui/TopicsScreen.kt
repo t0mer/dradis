@@ -72,9 +72,9 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<CustomTopic?>(null) }
 
-    /** Validates and stores [list]; returns the error to show, or null. */
-    suspend fun persist(list: List<CustomTopic>): String? = try {
-        repo.save(list, builtIn)
+    /** Atomically applies [change] to the stored list; returns the error to show, or null. */
+    suspend fun update(change: (List<CustomTopic>) -> List<CustomTopic>): String? = try {
+        repo.update(builtIn, change)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -85,7 +85,9 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         if (uri != null) scope.launch {
             val text = TopicsTransfer.export(repo.topics.first())
             message = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } }
+                runCatching {
+                    (context.contentResolver.openOutputStream(uri) ?: error("no stream")).use { it.write(text.toByteArray()) }
+                }
                     .fold({ "Exported" }, { "Export failed" })
             }
         }
@@ -94,9 +96,19 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         if (uri != null) scope.launch {
             message = try {
                 val text = withContext(Dispatchers.IO) { readBounded(context, uri) }
-                when (val r = TopicsTransfer.import(text, repo.topics.first(), builtIn)) {
+                var result: TopicsTransfer.Result? = null
+                val err = withContext(Dispatchers.Default) {
+                    update { cur ->
+                        when (val r = TopicsTransfer.import(text, cur, builtIn)) {
+                            is TopicsTransfer.Result.Ok -> r.merged.also { result = r }
+                            is TopicsTransfer.Result.Error -> cur.also { result = r }
+                        }
+                    }
+                }
+                when (val r = result) {
                     is TopicsTransfer.Result.Error -> r.message
-                    is TopicsTransfer.Result.Ok -> persist(r.merged) ?: "Imported ${r.added} topics"
+                    is TopicsTransfer.Result.Ok -> err ?: "Imported ${r.added} topics (disabled until you switch them on)"
+                    null -> err
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -120,7 +132,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
             items(topics, key = { it.id }) { t ->
                 TopicCard(
                     t, values[t.id],
-                    onToggle = { on -> scope.launch { message = persist(topics.map { if (it.id == t.id) it.copy(enabled = on) else it }) } },
+                    onToggle = { on -> scope.launch { message = update { l -> l.map { if (it.id == t.id) it.copy(enabled = on) else it } } } },
                     onEdit = { editing = t },
                     onDelete = { deleting = t },
                 )
@@ -132,14 +144,14 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
         TopicEditorDialog(
             initial = null,
             onDismiss = { adding = false },
-            onSave = { t -> persist(topics + t)?.also { return@TopicEditorDialog it }; adding = false; null },
+            onSave = { t -> update { it + t }?.also { return@TopicEditorDialog it }; adding = false; null },
         )
     }
     editing?.let { cur ->
         TopicEditorDialog(
             initial = cur,
             onDismiss = { editing = null },
-            onSave = { t -> persist(topics.map { if (it.id == cur.id) t else it })?.also { return@TopicEditorDialog it }; editing = null; null },
+            onSave = { t -> update { l -> l.map { if (it.id == cur.id) t else it } }?.also { return@TopicEditorDialog it }; editing = null; null },
         )
     }
     deleting?.let { t ->
@@ -149,7 +161,7 @@ fun TopicsScreen(modifier: Modifier = Modifier) {
             confirmButton = {
                 TextButton(onClick = {
                     deleting = null
-                    scope.launch { message = persist(topics.filter { it.id != t.id }) }
+                    scope.launch { message = update { l -> l.filter { it.id != t.id } } }
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
@@ -202,6 +214,7 @@ private fun TopicEditorDialog(
     var icon by remember { mutableStateOf(initial?.icon ?: NotifyIcon.DEFAULT) }
     var enabled by remember { mutableStateOf(initial?.enabled ?: true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -237,7 +250,8 @@ private fun TopicEditorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(enabled = !saving, onClick = {
+                saving = true
                 scope.launch {
                     error = onSave(
                         CustomTopic(
@@ -247,6 +261,7 @@ private fun TopicEditorDialog(
                             extractor = extractor.trim(), separator = separator,
                         ),
                     )
+                    saving = false
                 }
             }) { Text("Save") }
         },

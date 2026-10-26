@@ -28,7 +28,7 @@ object TopicsTransfer {
     }
 
     /**
-     * Parses [text] (an export object or a bare array), gives every topic a fresh id so an
+     * Parses [text] (an export object or a bare array), gives every topic a fresh id and disables it, so an
      * import can never overwrite or collide with an existing one, and validates the combined
      * list. Nothing is applied unless the whole import is valid.
      */
@@ -47,7 +47,9 @@ object TopicsTransfer {
         if (existing.size + incoming.size > CustomTopicValidator.MAX_TOPICS) {
             return Result.Error("At most ${CustomTopicValidator.MAX_TOPICS} custom topics")
         }
-        val fresh = incoming.map { it.copy(id = UUID.randomUUID().toString()) }
+        // Imported topics start disabled: a shared file must not start acting (ringing, speaking,
+        // subscribing to a topic) until the user has looked at it and switched it on.
+        val fresh = incoming.map { it.copy(id = UUID.randomUUID().toString(), enabled = false) }
         val merged = existing + fresh
         CustomTopicValidator.validateAll(merged, builtIn)?.let { return Result.Error(it) }
         return Result.Ok(merged, fresh.size)

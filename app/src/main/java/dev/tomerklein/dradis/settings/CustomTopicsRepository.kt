@@ -39,6 +39,24 @@ class CustomTopicsRepository(private val context: Context) {
         return null
     }
 
+    /**
+     * Atomic read-modify-write: [transform] sees the stored list inside DataStore's serialized
+     * edit, so quick successive changes cannot overwrite each other. Returns the validation
+     * error (nothing is written then), or null on success.
+     */
+    suspend fun update(
+        builtIn: Collection<String>,
+        transform: (List<CustomTopic>) -> List<CustomTopic>,
+    ): String? {
+        var error: String? = null
+        context.customTopicsStore.edit { prefs ->
+            val next = transform(decode(prefs[key]))
+            error = CustomTopicValidator.validateAll(next, builtIn)
+            if (error == null) prefs[key] = SecureStore.encrypt(json.encodeToString(next))
+        }
+        return error
+    }
+
     private fun decode(stored: String?): List<CustomTopic> {
         if (stored == null) return emptyList()
         val text = runCatching { SecureStore.decrypt(stored) }.getOrNull() ?: return emptyList()

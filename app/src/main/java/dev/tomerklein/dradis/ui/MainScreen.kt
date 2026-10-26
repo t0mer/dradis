@@ -1,5 +1,6 @@
 package dev.tomerklein.dradis.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -33,6 +34,7 @@ fun MainScreen() {
     var discovering by remember { mutableStateOf(false) }
     // About moved out of the bottom bar (Material allows at most five items) into the top bar.
     var about by remember { mutableStateOf(false) }
+    BackHandler(enabled = discovering || about) { discovering = false; about = false }
     fun select(t: Tab) { tab = t; discovering = false; about = false }
 
     Scaffold(
