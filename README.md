@@ -87,6 +87,7 @@ reconnects automatically as the phone moves between networks.
 | **Home Assistant** | MQTT auto‑discovery: appears as one device with a device_tracker, sensors/binary‑sensors and command buttons. |
 | **Stay connected while asleep** | Optional Wi‑Fi lock + partial wake lock so the link survives screen‑off / device sleep. |
 | **Autostart** | Starts the service after boot (when enabled). |
+| **Topic discovery** | The search icon in the top bar opens **Discover**: pick a filter (default `<prefix>/#`) and a duration (max 300 s) and the app lists the topics it sees, with a short redacted preview, size and whether it was retained. **Import as custom topic** turns one into an inbound custom topic (type suggested from the payload). Opt‑in and time‑boxed; payloads are never acted on. |
 | **Gallery** | The **Gallery** tab lists pictures received on custom topics of type Picture (raw JPEG/PNG or base64, ≤ 5 MB): thumbnails, full view, **share** to other apps and delete. The newest 100 are kept in app‑private storage. |
 | **Encrypted settings** | Settings (incl. broker credentials and CA certificates) are encrypted at rest with AES‑256‑GCM using an Android Keystore key. |
 
@@ -457,6 +458,7 @@ discovery configs (empty retained payloads).
 - `cmd/<verb>` (restart, reconnect, stop_alarm, send_logs, …) has no per‑sender
   check: the broker's authentication and ACLs are the only access control.
 - Received pictures are stored in app‑private storage under random file names (never taken from a payload). Sharing goes through a `FileProvider` that exposes only the gallery folder, and only to the app the user picks.
+- Topic discovery subscribes to a filter only while a session you started is running (clean session, ended on timeout, Stop or disconnect). Discovered payloads are not routed to any handler, are never written to the in‑app log, and appear only as redacted previews of at most 80 characters. Up to 200 topics are kept. Because a broad filter overlaps the command topics, identical messages arriving back‑to‑back are collapsed so a command is not run twice.
 - Keystores and `keystore.properties` are git‑ignored.
 
 ---
