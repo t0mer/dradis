@@ -36,6 +36,9 @@ import dev.tomerklein.dradis.log.LogFormatter
 import dev.tomerklein.dradis.net.NetworkMonitor
 import dev.tomerklein.dradis.settings.ClientId
 import dev.tomerklein.dradis.settings.CustomTopic
+import dev.tomerklein.dradis.settings.OutboundTopic
+import dev.tomerklein.dradis.telemetry.AndroidDeviceValues
+import dev.tomerklein.dradis.telemetry.CustomOutboundPublisher
 import dev.tomerklein.dradis.settings.CustomTopicType
 import dev.tomerklein.dradis.settings.DradisSettings
 import dev.tomerklein.dradis.telemetry.LocationPublisher
@@ -99,6 +102,9 @@ class MqttService : LifecycleService(), CommandSink {
     private val customLock = Any()
     private val pictureGate = Semaphore(1)
     private val dupGuard = DuplicateGuard()
+    private lateinit var outboundPublisher: CustomOutboundPublisher
+    @Volatile
+    private var customOutbound: List<OutboundTopic> = emptyList()
     // Topics we published on recently (HA discovery etc.), so discovery never lists our own echoes.
     private val ownPublished: MutableSet<String> = java.util.Collections.newSetFromMap(
         java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Boolean>() {
@@ -173,7 +179,10 @@ class MqttService : LifecycleService(), CommandSink {
         sensorReporter = SensorReporter(this)
         sensorReporter.start()
         ttsSpeaker = TtsSpeaker(this)
-        periodicReporter = PeriodicReporter(this, ioScope, telemetryReporter, sensorReporter)
+        outboundPublisher = CustomOutboundPublisher(this, AndroidDeviceValues(telemetryReporter, this))
+        periodicReporter = PeriodicReporter(this, ioScope, telemetryReporter, sensorReporter) {
+            outboundPublisher.publishAll(customOutbound)
+        }
 
         val publishReport = {
             telemetryReporter.publishAll()
@@ -247,6 +256,14 @@ class MqttService : LifecycleService(), CommandSink {
 
         connScope.launch { settingsRepo.migrate() }
         connScope.launch { runDiscoverySessions() }
+        connScope.launch {
+            ServiceLocator.customTopics.outbound.collect { list ->
+                customOutbound = list
+                // Publish right away when the list changes on a live link; on connect it is sent by onConnected.
+                if (client?.isConnected == true) ioScope.launch { outboundPublisher.publishAll(list) }
+                syncCustomSubscriptions()
+            }
+        }
         connScope.launch {
             ServiceLocator.customTopics.topics.collect { list ->
                 customTopics = list
@@ -433,6 +450,7 @@ class MqttService : LifecycleService(), CommandSink {
         if (current.telemetryEnabled) telemetryReporter.publishAll()
         if (current.sensorsEnabled) sensorReporter.publish()
         if (current.locationEnabled) ioScope.launch { LocationPublisher.publishCurrent(this@MqttService) }
+        ioScope.launch { outboundPublisher.publishAll(customOutbound) }
         logInfo("Connected; subscribed to ${t.inboundTopics().size} topics")
         updateStatus(ConnState.CONNECTED, selection, "Connected")
     }
@@ -500,7 +518,8 @@ class MqttService : LifecycleService(), CommandSink {
      *  change made a stored filter collide) would get duplicate deliveries or
      *  the app's own telemetry echoed back, so it is skipped. */
     private fun activeCustomTopics(): List<CustomTopic> {
-        val own = currentTopics.inboundTopics() + currentTopics.outboundTopics()
+        // Custom outbound topics count as our own: a filter covering one would echo it back.
+        val own = currentTopics.inboundTopics() + currentTopics.outboundTopics() + customOutbound.map { it.topic }
         return customTopics.filter { t -> t.enabled && own.none { TopicFilter.overlaps(it, t.filter) } }
     }
 

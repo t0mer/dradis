@@ -61,6 +61,11 @@ class TelemetryReporter(private val sink: CommandSink) {
         sink.publish(t.deviceInfo, json.encodeToString(buildDeviceInfo()))
     }
 
+    /** Current values for custom outbound topics (read-only; builds the same payloads as [publishAll]). */
+    fun currentBattery(): BatteryInfo = buildBattery(readBatteryIntent())
+
+    fun currentWifi(): WifiInfo = buildWifi()
+
     private fun readBatteryIntent(): Intent? =
         sink.appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 

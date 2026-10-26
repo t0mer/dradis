@@ -18,6 +18,7 @@ class PeriodicReporter(
     private val scope: CoroutineScope,
     private val telemetryReporter: TelemetryReporter,
     private val sensorReporter: SensorReporter,
+    private val extra: suspend () -> Unit = {},
 ) {
     private var job: Job? = null
 
@@ -33,6 +34,7 @@ class PeriodicReporter(
                     if (cur.locationEnabled) LocationPublisher.publishCurrent(sink)
                     if (cur.telemetryEnabled) telemetryReporter.publishAll()
                     if (cur.sensorsEnabled) sensorReporter.publish()
+                    extra()
                 }
                 val interval = cur.updateIntervalSeconds.coerceAtLeast(15)
                 delay(interval * 1000L)
