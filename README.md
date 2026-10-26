@@ -384,7 +384,7 @@ allowed), a type, and flags: *enabled*, *notify*, *speak* and a notification ico
 | Type | What a message does |
 |---|---|
 | **Text** | Stores the payload as the topic's last value; optionally notifies/speaks it. |
-| **Alarm** | Rings the find‑phone alarm (payload `{"seconds":N}` or `{}` for the default; `0` or negative is ignored). |
+| **Alarm** | Any non‑empty message rings the find‑phone alarm for the duration set in Settings (ignored if the alarm is disabled or the duration is 0). The payload is not interpreted. |
 | **Picture** | Payload is a raw JPEG/PNG, base64, or `{"jpeg_b64":"…"}` (≤ 5 MB). Saved to the **Gallery** and notified. |
 | **Key/Value** | Splits the payload at the first separator (default `:`) into `label` and `value`. |
 | **Extracted** | Pulls one value out of the payload with a JSONPath subset (`$.a.b[0]`, `$['key']`) or a regex (group 1, else the whole match). |
