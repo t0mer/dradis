@@ -76,7 +76,7 @@ jobs:
 
       - name: Create GitHub Release
         # Pinned to a commit SHA (v2.6.2) so a moved tag can't change a release step.
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: dist/*.apk
