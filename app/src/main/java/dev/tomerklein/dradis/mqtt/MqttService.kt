@@ -612,7 +612,7 @@ class MqttService : LifecycleService(), CommandSink {
             BrokerKind.NONE -> "—"
         }
         val text = when (state) {
-            ConnState.CONNECTED -> "Connected ($brokerLabel · ${status.host})"
+            ConnState.CONNECTED -> "Connected ($brokerLabel)"
             ConnState.CONNECTING -> "Connecting ($brokerLabel)…"
             ConnState.DISCONNECTED -> detail.ifBlank { "Disconnected" }
             ConnState.UNAUTHORIZED -> "Not authorized ($brokerLabel) — check broker credentials"
@@ -649,6 +649,7 @@ class MqttService : LifecycleService(), CommandSink {
             .setContentText(status)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setContentIntent(tapIntent)
             .setOnlyAlertOnce(true)
             .build()
@@ -657,13 +658,17 @@ class MqttService : LifecycleService(), CommandSink {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(NotificationManager::class.java)
+            mgr.deleteNotificationChannel("dradis_connection")
             if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
                 mgr.createNotificationChannel(
                     NotificationChannel(
                         CHANNEL_ID,
                         getString(R.string.fgs_channel_name),
                         NotificationManager.IMPORTANCE_LOW,
-                    ).apply { setShowBadge(false) }
+                    ).apply {
+                        setShowBadge(false)
+                        lockscreenVisibility = Notification.VISIBILITY_SECRET
+                    }
                 )
             }
         }
@@ -672,7 +677,9 @@ class MqttService : LifecycleService(), CommandSink {
     private fun now() = System.currentTimeMillis()
 
     companion object {
-        private const val CHANNEL_ID = "dradis_connection"
+        // Channel settings are cached by Android once created; "_v2" forces the
+        // lock-screen-hidden visibility onto installs that had the old channel.
+        private const val CHANNEL_ID = "dradis_connection_v2"
         private const val NOTIFICATION_ID = 1001
         private const val DEBOUNCE_MS = 2500L
         private const val MAX_LOGGED_PAYLOAD = 300

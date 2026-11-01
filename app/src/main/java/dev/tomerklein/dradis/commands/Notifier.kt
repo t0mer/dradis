@@ -1,6 +1,7 @@
 package dev.tomerklein.dradis.commands
 
 import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -47,6 +48,7 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(icon)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(tapIntent)
             .build()
@@ -63,7 +65,7 @@ object Notifier {
                         CHANNEL_ID,
                         "Pushed notifications",
                         NotificationManager.IMPORTANCE_HIGH,
-                    )
+                    ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
                 )
             }
         }
