@@ -658,13 +658,17 @@ class MqttService : LifecycleService(), CommandSink {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(NotificationManager::class.java)
-            mgr.deleteNotificationChannel("dradis_connection")
+            // One-time migration: carry over a user-disabled old channel, then drop it.
+            val old = mgr.getNotificationChannel(LEGACY_CHANNEL_ID)
+            val wasMuted = old?.importance == NotificationManager.IMPORTANCE_NONE
+            if (old != null) mgr.deleteNotificationChannel(LEGACY_CHANNEL_ID)
             if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
                 mgr.createNotificationChannel(
                     NotificationChannel(
                         CHANNEL_ID,
                         getString(R.string.fgs_channel_name),
-                        NotificationManager.IMPORTANCE_LOW,
+                        if (wasMuted) NotificationManager.IMPORTANCE_NONE
+                        else NotificationManager.IMPORTANCE_LOW,
                     ).apply {
                         setShowBadge(false)
                         lockscreenVisibility = Notification.VISIBILITY_SECRET
@@ -680,6 +684,7 @@ class MqttService : LifecycleService(), CommandSink {
         // Channel settings are cached by Android once created; "_v2" forces the
         // lock-screen-hidden visibility onto installs that had the old channel.
         private const val CHANNEL_ID = "dradis_connection_v2"
+        private const val LEGACY_CHANNEL_ID = "dradis_connection"
         private const val NOTIFICATION_ID = 1001
         private const val DEBOUNCE_MS = 2500L
         private const val MAX_LOGGED_PAYLOAD = 300
