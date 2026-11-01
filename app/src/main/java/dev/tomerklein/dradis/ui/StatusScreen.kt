@@ -100,21 +100,25 @@ fun StatusScreen(modifier: Modifier = Modifier) {
 
         // Android 15 grays out the SMS "Allow" button for apps installed from an
         // APK file until "Allow restricted settings" is turned on in App info.
-        val smsRestricted = remember(resumes, settings.smsEnabled) {
-            settings.smsEnabled && Permissions.smsBlockedByRestrictedSettings(context)
+        // We can't query that, so this is a hint shown while SMS is ungranted.
+        val smsUngranted = remember(resumes, settings.smsEnabled) {
+            settings.smsEnabled && Permissions.smsMayBeRestrictedSettings(context)
         }
-        if (smsRestricted) {
+        if (smsUngranted) {
             ConsoleCard(error = true) {
-                Text("SMS permission blocked", style = MaterialTheme.typography.titleSmall)
+                Text("SMS permission not granted", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Android restricts SMS access for apps installed from an APK " +
-                        "file, so “Allow” is grayed out (“App was denied access”). " +
-                        "To unblock it once: tap “Grant SMS / Location / Camera / " +
-                        "Notifications” below and dismiss the prompt, then open App " +
-                        "info → ⋮ → Allow restricted settings, confirm, and allow SMS " +
-                        "under Permissions.",
+                    "Tap “Grant SMS” and allow it. If “Allow” is grayed out " +
+                        "(“App was denied access”), Android is restricting apps " +
+                        "installed from an APK file. To unblock it once: dismiss the " +
+                        "prompt, then open App info → ⋮ → Allow restricted settings, " +
+                        "confirm, and allow SMS under Permissions.",
                 )
                 Button(
+                    onClick = { runtimeLauncher.launch(Permissions.runtimePermissions()) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Grant SMS") }
+                OutlinedButton(
                     onClick = { context.startActivity(Permissions.appDetailsIntent(context)) },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Open App info") }
